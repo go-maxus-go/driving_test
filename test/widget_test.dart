@@ -63,8 +63,7 @@ void main() {
       await tester.pumpWidget(
         DrivingExamApp(
           controller: controller,
-          onOpenPractice: (_, req) =>
-              launchedRequest = req as PracticeLaunchRequest,
+          onOpenPractice: (_, req) => launchedRequest = req,
         ),
       );
 

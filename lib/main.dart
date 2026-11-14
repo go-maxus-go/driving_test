@@ -3,6 +3,8 @@ import 'package:fvp/fvp.dart' as fvp;
 import 'package:material_ui/material_ui.dart';
 
 import 'screens/app_shell.dart';
+import 'screens/home_screen.dart';
+import 'screens/practice_player_screen.dart';
 import 'state/app_controller.dart';
 import 'theme/app_theme.dart';
 
@@ -31,13 +33,28 @@ class DrivingExamApp extends StatelessWidget {
     this.progressBuilder,
     this.onOpenPractice,
     this.onOpenExam,
+    this.enableNativeVideo = true,
   });
 
   final AppController controller;
   final WidgetBuilder? topicsBuilder;
   final WidgetBuilder? progressBuilder;
-  final void Function(BuildContext context, dynamic request)? onOpenPractice;
+  final void Function(BuildContext context, PracticeLaunchRequest request)?
+  onOpenPractice;
   final void Function(BuildContext context)? onOpenExam;
+  final bool enableNativeVideo;
+
+  void _defaultOpenPractice(BuildContext context, PracticeLaunchRequest req) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PracticePlayerScreen(
+          controller: controller,
+          request: req,
+          enableNativeVideo: enableNativeVideo,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +72,8 @@ class DrivingExamApp extends StatelessWidget {
               controller: controller,
               topicsBuilder: topicsBuilder,
               progressBuilder: progressBuilder,
-              onOpenPractice: (req) => onOpenPractice?.call(innerContext, req),
+              onOpenPractice: (req) =>
+                  (onOpenPractice ?? _defaultOpenPractice)(innerContext, req),
               onOpenExam: () => onOpenExam?.call(innerContext),
             ),
           ),
