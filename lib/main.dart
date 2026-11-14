@@ -3,6 +3,7 @@ import 'package:fvp/fvp.dart' as fvp;
 import 'package:material_ui/material_ui.dart';
 
 import 'screens/app_shell.dart';
+import 'screens/exam_player_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/practice_player_screen.dart';
 import 'screens/topics_screen.dart';
@@ -57,6 +58,19 @@ class DrivingExamApp extends StatelessWidget {
     );
   }
 
+  void _defaultOpenExam(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ExamPlayerScreen(
+          controller: controller,
+          onPracticeMistakes: (req) =>
+              (onOpenPractice ?? _defaultOpenPractice)(context, req),
+          enableNativeVideo: enableNativeVideo,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -84,7 +98,7 @@ class DrivingExamApp extends StatelessWidget {
               progressBuilder: progressBuilder,
               onOpenPractice: (req) =>
                   (onOpenPractice ?? _defaultOpenPractice)(innerContext, req),
-              onOpenExam: () => onOpenExam?.call(innerContext),
+              onOpenExam: () => (onOpenExam ?? _defaultOpenExam)(innerContext),
             ),
           ),
         );
