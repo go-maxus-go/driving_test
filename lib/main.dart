@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'screens/app_shell.dart';
 import 'screens/home_screen.dart';
 import 'screens/practice_player_screen.dart';
+import 'screens/topics_screen.dart';
 import 'state/app_controller.dart';
 import 'theme/app_theme.dart';
 
@@ -70,7 +71,16 @@ class DrivingExamApp extends StatelessWidget {
           home: Builder(
             builder: (innerContext) => AppShell(
               controller: controller,
-              topicsBuilder: topicsBuilder,
+              topicsBuilder:
+                  topicsBuilder ??
+                  (_) => TopicsScreen(
+                    controller: controller,
+                    onStartPractice: (req) =>
+                        (onOpenPractice ?? _defaultOpenPractice)(
+                          innerContext,
+                          req,
+                        ),
+                  ),
               progressBuilder: progressBuilder,
               onOpenPractice: (req) =>
                   (onOpenPractice ?? _defaultOpenPractice)(innerContext, req),
