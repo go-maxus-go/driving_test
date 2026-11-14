@@ -6,6 +6,7 @@ import 'screens/app_shell.dart';
 import 'screens/exam_player_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/practice_player_screen.dart';
+import 'screens/progress_screen.dart';
 import 'screens/topics_screen.dart';
 import 'state/app_controller.dart';
 import 'theme/app_theme.dart';
@@ -95,7 +96,18 @@ class DrivingExamApp extends StatelessWidget {
                           req,
                         ),
                   ),
-              progressBuilder: progressBuilder,
+              progressBuilder:
+                  progressBuilder ??
+                  (_) => ProgressScreen(
+                    controller: controller,
+                    onStartPractice: (req) =>
+                        (onOpenPractice ?? _defaultOpenPractice)(
+                          innerContext,
+                          req,
+                        ),
+                    onStartExam: () =>
+                        (onOpenExam ?? _defaultOpenExam)(innerContext),
+                  ),
               onOpenPractice: (req) =>
                   (onOpenPractice ?? _defaultOpenPractice)(innerContext, req),
               onOpenExam: () => (onOpenExam ?? _defaultOpenExam)(innerContext),
