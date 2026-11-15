@@ -1,10 +1,22 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:driving_exam/l10n/app_language.dart';
 import 'package:driving_exam/models/question.dart';
+import 'package:driving_exam/services/media_cache_service.dart';
+import 'package:driving_exam/services/media_store.dart';
 import 'package:driving_exam/theme/app_theme.dart';
+import 'package:driving_exam/widgets/answer_option_card.dart';
+import 'package:driving_exam/widgets/media_cache_scope.dart';
 import 'package:driving_exam/widgets/question_media_stage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:video_player/video_player.dart';
+
+final Uint8List _kOneByOnePng = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+);
 
 class _FakeVideoPlayerController extends VideoPlayerController {
   _FakeVideoPlayerController() : super.asset('assets/videos/sample.mp4');
@@ -245,6 +257,169 @@ void main() {
       await tester.tap(closeFinder);
       await tester.pumpAndSettle();
       expect(closeFinder, findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Uncached question images, sign options, and videos show loading indicators while downloading and render once loaded',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(412, 915);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final imageCompleter = Completer<Uint8List>();
+      final signCompleter = Completer<Uint8List>();
+      final videoCompleter = Completer<Uint8List>();
+
+      final cache = MediaCacheService(
+        store: InMemoryMediaStore(),
+        fetcher: (uri) {
+          if (uri.path.endsWith('lazy_scene.png')) {
+            return imageCompleter.future;
+          }
+          if (uri.path.endsWith('lazy_sign.png')) {
+            return signCompleter.future;
+          }
+          if (uri.path.endsWith('lazy_clip.mp4')) {
+            return videoCompleter.future;
+          }
+          return Future<Uint8List>.value(_kOneByOnePng);
+        },
+      );
+      addTearDown(cache.dispose);
+
+      final strings = AppStrings(AppLanguage.en);
+      final imageQuestion = Question.fromJson({
+        'theme_number': 'Theme 1.1.',
+        'theme_name': 'Danger Teaching',
+        'chapter_number': '1.1.01 Chapter',
+        'chapter_name': 'Basic Forms',
+        'question_id': '1.1.01-010',
+        'question_number': '1.1.01-010',
+        'points': '3 Points',
+        'licenses': ['Basic material'],
+        'question_text': 'Which sign applies here?',
+        'options': <Map<String, dynamic>>[
+          {'letter': 'A.', 'text': 'Option A'},
+        ],
+        'correct_answers': <Map<String, dynamic>>[
+          {'letter': 'A.', 'text': 'Option A'},
+        ],
+        'comment': '',
+        'local_image_paths': ['assets/images/lazy_scene.png'],
+        'local_video_paths': <String>[],
+      });
+      const signOption = QuestionOption(
+        letter: 'A',
+        text: '',
+        imageAssetPath: 'assets/images/lazy_sign.png',
+      );
+
+      await tester.pumpWidget(
+        MediaCacheScope(
+          cache: cache,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: Column(
+                children: [
+                  QuestionMediaStage(question: imageQuestion, strings: strings),
+                  AnswerOptionCard(
+                    option: signOption,
+                    isSelected: false,
+                    strings: strings,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Both the uncached main image and sign option show loading indicators
+      expect(find.byKey(const Key('image_loading_indicator')), findsOneWidget);
+      expect(find.byKey(const Key('option_sign_loading_A')), findsOneWidget);
+      expect(cache.activeUrgentCount, greaterThanOrEqualTo(2));
+
+      // Complete the downloads -> spinners disappear and MemoryImage widgets render
+      imageCompleter.complete(_kOneByOnePng);
+      signCompleter.complete(_kOneByOnePng);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byKey(const Key('image_loading_indicator')), findsNothing);
+      expect(find.byKey(const Key('option_sign_loading_A')), findsNothing);
+      expect(find.byType(Image), findsNWidgets(2));
+      expect(cache.activeUrgentCount, 0);
+
+      // Now open an uncached video question -> shows video loading indicator
+      // with urgent download priority, including inside fullscreen
+      final videoQuestion = Question.fromJson({
+        'theme_number': 'Theme 1.2.',
+        'theme_name': 'Behavior',
+        'chapter_number': '1.2.01 Chapter',
+        'chapter_name': 'Passing',
+        'question_id': '1.2.01-099',
+        'question_number': '1.2.01-099',
+        'points': '5 Points',
+        'licenses': ['B'],
+        'question_text': 'Watch the traffic situation.',
+        'options': <Map<String, dynamic>>[],
+        'correct_answers': <Map<String, dynamic>>[],
+        'comment': '',
+        'local_image_paths': <String>[],
+        'local_video_paths': ['assets/videos/lazy_clip.mp4'],
+      });
+
+      _FakeVideoPlayerController? createdVideoCtrl;
+      await tester.pumpWidget(
+        MediaCacheScope(
+          cache: cache,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: QuestionMediaStage(
+                question: videoQuestion,
+                strings: strings,
+                enableNativeVideo: false,
+                videoControllerBuilder: (_) {
+                  createdVideoCtrl = _FakeVideoPlayerController();
+                  return createdVideoCtrl!;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('video_loading_indicator')), findsOneWidget);
+      expect(createdVideoCtrl, isNull);
+      expect(cache.activeUrgentCount, 1);
+
+      // Opening fullscreen while video is still downloading shows fullscreen loading indicator
+      await tester.tap(find.byKey(const Key('video_fullscreen_btn')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        find.byKey(const Key('fullscreen_video_loading_indicator')),
+        findsOneWidget,
+      );
+
+      // Finish downloading the video -> transitions automatically to playing VideoPlayer!
+      videoCompleter.complete(Uint8List.fromList([0, 0, 0, 24, 102, 116]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        find.byKey(const Key('fullscreen_video_loading_indicator')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('video_loading_indicator')), findsNothing);
+      expect(createdVideoCtrl, isNotNull);
+      expect(createdVideoCtrl!.playCalls, 1);
+      expect(cache.activeUrgentCount, 0);
     },
   );
 }

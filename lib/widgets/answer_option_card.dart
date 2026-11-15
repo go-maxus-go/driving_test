@@ -6,6 +6,8 @@ import '../l10n/app_language.dart';
 import '../models/answer_evaluation.dart';
 import '../models/question.dart';
 import '../theme/app_theme.dart';
+import 'cached_asset_image.dart';
+import 'media_cache_scope.dart';
 import 'question_media_stage.dart';
 
 class AnswerOptionCard extends StatelessWidget {
@@ -30,6 +32,7 @@ class AnswerOptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final semantic = SemanticColors.of(context);
+    final mediaCache = MediaCacheScope.maybeOf(context);
 
     Color bgColor = semantic.cardSurface;
     Color borderColor = semantic.subtleBorder;
@@ -147,8 +150,11 @@ class AnswerOptionCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 if (option.imageAssetPath != null) ...[
                   GestureDetector(
-                    onTap: () =>
-                        showImageZoomLightbox(context, option.imageAssetPath!),
+                    onTap: () => showImageZoomLightbox(
+                      context,
+                      option.imageAssetPath!,
+                      mediaCache: mediaCache,
+                    ),
                     child: Container(
                       key: Key('option_sign_surface_${option.letter}'),
                       width: 76,
@@ -159,14 +165,14 @@ class AnswerOptionCard extends StatelessWidget {
                         border: Border.all(color: semantic.subtleBorder),
                       ),
                       padding: const EdgeInsets.all(4),
-                      child: Image.asset(
-                        option.imageAssetPath!,
+                      child: CachedAssetImage(
+                        assetPath: option.imageAssetPath!,
+                        mediaCache: mediaCache,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => const Icon(
-                          Icons.traffic_rounded,
-                          size: 36,
-                          color: Colors.black54,
-                        ),
+                        indicatorSize: 22,
+                        loadingKey: Key('option_sign_loading_${option.letter}'),
+                        fallbackIcon: Icons.traffic_rounded,
+                        fallbackIconSize: 36,
                       ),
                     ),
                   ),

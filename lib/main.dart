@@ -15,6 +15,7 @@ import 'state/app_controller.dart';
 import 'theme/app_theme.dart';
 import 'widgets/app_loading_screen.dart';
 import 'widgets/first_launch_language_dialog.dart';
+import 'widgets/media_cache_scope.dart';
 
 bool get _isMobileFullscreenPlatform =>
     !kIsWeb &&
@@ -119,55 +120,61 @@ class DrivingExamApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: controller.strings.appTitle,
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
-          themeMode: controller.themeMode,
-          home: Builder(
-            builder: (innerContext) {
-              if (promptFirstLaunchLanguage) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (innerContext.mounted) {
-                    FirstLaunchLanguageDialog.showIfNeeded(
-                      innerContext,
-                      controller,
-                    );
-                  }
-                });
-              }
+        return MediaCacheScope(
+          cache: controller.mediaCache,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: controller.strings.appTitle,
+            theme: AppTheme.light(),
+            darkTheme: AppTheme.dark(),
+            themeMode: controller.themeMode,
+            home: Builder(
+              builder: (innerContext) {
+                if (promptFirstLaunchLanguage) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (innerContext.mounted) {
+                      FirstLaunchLanguageDialog.showIfNeeded(
+                        innerContext,
+                        controller,
+                      );
+                    }
+                  });
+                }
 
-              return AppShell(
-                controller: controller,
-                topicsBuilder:
-                    topicsBuilder ??
-                    (_) => TopicsScreen(
-                      controller: controller,
-                      onStartPractice: (req) =>
-                          (onOpenPractice ?? _defaultOpenPractice)(
-                            innerContext,
-                            req,
-                          ),
-                    ),
-                progressBuilder:
-                    progressBuilder ??
-                    (_) => ProgressScreen(
-                      controller: controller,
-                      onStartPractice: (req) =>
-                          (onOpenPractice ?? _defaultOpenPractice)(
-                            innerContext,
-                            req,
-                          ),
-                      onStartExam: () =>
-                          (onOpenExam ?? _defaultOpenExam)(innerContext),
-                    ),
-                onOpenPractice: (req) =>
-                    (onOpenPractice ?? _defaultOpenPractice)(innerContext, req),
-                onOpenExam: () =>
-                    (onOpenExam ?? _defaultOpenExam)(innerContext),
-              );
-            },
+                return AppShell(
+                  controller: controller,
+                  topicsBuilder:
+                      topicsBuilder ??
+                      (_) => TopicsScreen(
+                        controller: controller,
+                        onStartPractice: (req) =>
+                            (onOpenPractice ?? _defaultOpenPractice)(
+                              innerContext,
+                              req,
+                            ),
+                      ),
+                  progressBuilder:
+                      progressBuilder ??
+                      (_) => ProgressScreen(
+                        controller: controller,
+                        onStartPractice: (req) =>
+                            (onOpenPractice ?? _defaultOpenPractice)(
+                              innerContext,
+                              req,
+                            ),
+                        onStartExam: () =>
+                            (onOpenExam ?? _defaultOpenExam)(innerContext),
+                      ),
+                  onOpenPractice: (req) =>
+                      (onOpenPractice ?? _defaultOpenPractice)(
+                        innerContext,
+                        req,
+                      ),
+                  onOpenExam: () =>
+                      (onOpenExam ?? _defaultOpenExam)(innerContext),
+                );
+              },
+            ),
           ),
         );
       },

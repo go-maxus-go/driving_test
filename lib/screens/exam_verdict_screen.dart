@@ -6,6 +6,7 @@ import '../services/exam_engine.dart';
 import '../state/app_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/answer_option_card.dart';
+import '../widgets/media_cache_scope.dart';
 
 class ExamVerdictScreen extends StatefulWidget {
   const ExamVerdictScreen({
@@ -46,181 +47,121 @@ class _ExamVerdictScreenState extends State<ExamVerdictScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: widget.controller,
-      builder: (context, _) {
-        final s = widget.controller.strings;
-        final res = widget.result;
-        final semantic = SemanticColors.of(context);
-        final scheme = Theme.of(context).colorScheme;
+    return MediaCacheScope(
+      cache: widget.controller.mediaCache,
+      child: ListenableBuilder(
+        listenable: widget.controller,
+        builder: (context, _) {
+          final s = widget.controller.strings;
+          final res = widget.result;
+          final semantic = SemanticColors.of(context);
+          final scheme = Theme.of(context).colorScheme;
 
-        final shownIds = _wrongOnly ? res.wrongQuestionIds : res.questionIds;
+          final shownIds = _wrongOnly ? res.wrongQuestionIds : res.questionIds;
 
-        return Scaffold(
-          appBar: AppBar(
-            leading: IconButton(
-              key: const Key('close_verdict_btn'),
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
+          return Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                key: const Key('close_verdict_btn'),
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+              title: Text(
+                s.isDe ? 'Prüfungsergebnis' : 'Exam Result',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
-            title: Text(
-              s.isDe ? 'Prüfungsergebnis' : 'Exam Result',
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-          body: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 860),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                children: [
-                  Container(
-                    key: const Key('exam_verdict_banner'),
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      color: res.passed
-                          ? semantic.correctSurface
-                          : semantic.wrongSurface,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
+            body: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 860),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                  children: [
+                    Container(
+                      key: const Key('exam_verdict_banner'),
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
                         color: res.passed
-                            ? semantic.correctBorder
-                            : semantic.wrongBorder,
-                        width: 2,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          res.passed
-                              ? Icons.verified_rounded
-                              : Icons.cancel_rounded,
-                          size: 52,
+                            ? semantic.correctSurface
+                            : semantic.wrongSurface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
                           color: res.passed
                               ? semantic.correctBorder
                               : semantic.wrongBorder,
+                          width: 2,
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          res.passed ? s.examPassed : s.examFailed,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            color: res.passed
-                                ? semantic.correctText
-                                : semantic.wrongText,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          s.errorPointsSummary(res.totalErrorPoints),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: res.passed
-                                ? semantic.correctText
-                                : semantic.wrongText,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: LinearProgressIndicator(
-                            value: (res.totalErrorPoints / 15.0).clamp(
-                              0.0,
-                              1.0,
-                            ),
-                            minHeight: 10,
-                            backgroundColor: Colors.black12,
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            res.passed
+                                ? Icons.verified_rounded
+                                : Icons.cancel_rounded,
+                            size: 52,
                             color: res.passed
                                 ? semantic.correctBorder
                                 : semantic.wrongBorder,
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 14,
-                          runSpacing: 6,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            Text(
-                              '✓ ${res.correctCount}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              '✗ ${res.wrongCount}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              '⏱ ${_formatDuration(res.durationSeconds)}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          res.failedByTwoFivePointRule
-                              ? s.twoFivePointFailWarning
-                              : s.fivePointRuleOk,
-                          key: const Key('five_point_rule_status'),
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: res.failedByTwoFivePointRule
-                                ? semantic.wrongText
-                                : semantic.correctText,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (res.questionIds.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    FilledButton(
-                      key: const Key('retry_exam_btn'),
-                      onPressed: widget.onRetryExam,
-                      child: Text(s.retryQuestion),
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            s.isDe ? 'AUFSCHLÜSSELUNG' : 'SECTION BREAKDOWN',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.6,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
                           const SizedBox(height: 10),
+                          Text(
+                            res.passed ? s.examPassed : s.examFailed,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: res.passed
+                                  ? semantic.correctText
+                                  : semantic.wrongText,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            s.errorPointsSummary(res.totalErrorPoints),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: res.passed
+                                  ? semantic.correctText
+                                  : semantic.wrongText,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: (res.totalErrorPoints / 15.0).clamp(
+                                0.0,
+                                1.0,
+                              ),
+                              minHeight: 10,
+                              backgroundColor: Colors.black12,
+                              color: res.passed
+                                  ? semantic.correctBorder
+                                  : semantic.wrongBorder,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            spacing: 12,
-                            runSpacing: 4,
+                            spacing: 14,
+                            runSpacing: 6,
+                            alignment: WrapAlignment.center,
                             children: [
                               Text(
-                                s.filterGrundstoff,
+                                '✓ ${res.correctCount}',
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                               Text(
-                                '${res.basicCorrectCount}/${res.basicTotalCount} ✓  •  ${res.basicErrorPoints} ${s.isDe ? "Fehlerpkt." : "Error Pts"}',
+                                '✗ ${res.wrongCount}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                '⏱ ${_formatDuration(res.durationSeconds)}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -228,76 +169,141 @@ class _ExamVerdictScreenState extends State<ExamVerdictScreen> {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            spacing: 12,
-                            runSpacing: 4,
-                            children: [
-                              Text(
-                                s.filterZusatzstoff,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              Text(
-                                '${res.classBCorrectCount}/${res.classBTotalCount} ✓  •  ${res.classBErrorPoints} ${s.isDe ? "Fehlerpkt." : "Error Pts"}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            res.failedByTwoFivePointRule
+                                ? s.twoFivePointFailWarning
+                                : s.fivePointRuleOk,
+                            key: const Key('five_point_rule_status'),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: res.failedByTwoFivePointRule
+                                  ? semantic.wrongText
+                                  : semantic.correctText,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: InkWell(
-                      key: const Key('verdict_mistakes_only_toggle'),
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: () => setState(() => _wrongOnly = !_wrongOnly),
+                    if (res.questionIds.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      FilledButton(
+                        key: const Key('retry_exam_btn'),
+                        onPressed: widget.onRetryExam,
+                        child: Text(s.retryQuestion),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    Card(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Checkbox(
-                              key: const Key('verdict_mistakes_only_checkbox'),
-                              value: _wrongOnly,
-                              onChanged: (val) =>
-                                  setState(() => _wrongOnly = val ?? false),
-                            ),
-                            const SizedBox(width: 4),
                             Text(
-                              s.mistakesOnlyCheckboxLabel(
-                                res.wrongQuestionIds.length,
+                              s.isDe ? 'AUFSCHLÜSSELUNG' : 'SECTION BREAKDOWN',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.6,
+                                color: scheme.onSurfaceVariant,
                               ),
-                              style: const TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w700,
-                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              spacing: 12,
+                              runSpacing: 4,
+                              children: [
+                                Text(
+                                  s.filterGrundstoff,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  '${res.basicCorrectCount}/${res.basicTotalCount} ✓  •  ${res.basicErrorPoints} ${s.isDe ? "Fehlerpkt." : "Error Pts"}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              spacing: 12,
+                              runSpacing: 4,
+                              children: [
+                                Text(
+                                  s.filterZusatzstoff,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  '${res.classBCorrectCount}/${res.classBTotalCount} ✓  •  ${res.classBErrorPoints} ${s.isDe ? "Fehlerpkt." : "Error Pts"}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  for (final qid in shownIds) ...[
-                    _buildReviewItem(context, qid),
+                    const SizedBox(height: 14),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: InkWell(
+                        key: const Key('verdict_mistakes_only_toggle'),
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => setState(() => _wrongOnly = !_wrongOnly),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 4,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Checkbox(
+                                key: const Key(
+                                  'verdict_mistakes_only_checkbox',
+                                ),
+                                value: _wrongOnly,
+                                onChanged: (val) =>
+                                    setState(() => _wrongOnly = val ?? false),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                s.mistakesOnlyCheckboxLabel(
+                                  res.wrongQuestionIds.length,
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 10),
+                    for (final qid in shownIds) ...[
+                      _buildReviewItem(context, qid),
+                      const SizedBox(height: 10),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

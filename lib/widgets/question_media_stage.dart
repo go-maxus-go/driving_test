@@ -5,7 +5,10 @@ import 'package:video_player/video_player.dart';
 
 import '../l10n/app_language.dart';
 import '../models/question.dart';
+import '../services/media_cache_service.dart';
 import '../theme/app_theme.dart';
+import 'cached_asset_image.dart';
+import 'media_cache_scope.dart';
 
 Matrix4 computeDoubleTapZoomMatrix({
   required Offset tapPosition,
@@ -38,6 +41,7 @@ class QuestionMediaStage extends StatefulWidget {
     super.key,
     required this.question,
     required this.strings,
+    this.mediaCache,
     this.isExamVideoPhaseOne = false,
     this.isVideoLockedToFreezeFrame = false,
     this.allowVideoScrubbing = false,
@@ -51,6 +55,7 @@ class QuestionMediaStage extends StatefulWidget {
 
   final Question question;
   final AppStrings strings;
+  final MediaCacheService? mediaCache;
   final bool isExamVideoPhaseOne;
   final bool isVideoLockedToFreezeFrame;
   final bool allowVideoScrubbing;
@@ -68,75 +73,165 @@ class QuestionMediaStage extends StatefulWidget {
 
 class _QuestionMediaStageState extends State<QuestionMediaStage> {
   VideoPlayerController? _videoController;
+  MediaCacheService? _lastCache;
+  bool _didInitMedia = false;
+  bool _videoLoading = false;
   bool _videoReady = false;
   bool _videoError = false;
+  int _setupGeneration = 0;
+  final ValueNotifier<int> _stageRevision = ValueNotifier<int>(0);
+
+  MediaCacheService? _resolveCache(BuildContext context) =>
+      widget.mediaCache ?? MediaCacheScope.maybeOf(context);
+
+  void _bumpRevision() {
+    _stageRevision.value++;
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _setupMedia();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final cache = _resolveCache(context);
+    if (!_didInitMedia || _lastCache != cache) {
+      _didInitMedia = true;
+      _lastCache = cache;
+      _disposeVideo();
+      _setupMedia(cache);
+    }
   }
 
   @override
   void didUpdateWidget(covariant QuestionMediaStage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final cache = _resolveCache(context);
     if (oldWidget.question.questionId != widget.question.questionId ||
         oldWidget.isVideoLockedToFreezeFrame !=
-            widget.isVideoLockedToFreezeFrame) {
+            widget.isVideoLockedToFreezeFrame ||
+        oldWidget.mediaCache != widget.mediaCache) {
+      _lastCache = cache;
       _disposeVideo();
-      _setupMedia();
+      _setupMedia(cache);
     }
   }
 
   void _onVideoControllerUpdate() {
     if (mounted) {
-      setState(() {});
+      setState(_bumpRevision);
     }
   }
 
-  void _setupMedia() {
+  void _setupMedia(MediaCacheService? cache) {
+    final gen = ++_setupGeneration;
     if (widget.question.mediaKind != QuestionMediaKind.video ||
-        widget.isVideoLockedToFreezeFrame ||
-        (!widget.enableNativeVideo && widget.videoControllerBuilder == null)) {
+        widget.isVideoLockedToFreezeFrame) {
       return;
     }
+
+    final previewImg = widget.question.primaryImageAsset;
+    if (cache != null && previewImg != null && previewImg.isNotEmpty) {
+      unawaited(cache.ensureAvailable(previewImg, highPriority: false));
+    }
+
+    if (!widget.enableNativeVideo && widget.videoControllerBuilder == null) {
+      return;
+    }
+
     final assetPath = widget.question.videoAssetPath;
     if (assetPath == null || assetPath.isEmpty) return;
 
-    final controller =
-        widget.videoControllerBuilder?.call(assetPath) ??
-        VideoPlayerController.asset(assetPath);
-    controller.addListener(_onVideoControllerUpdate);
-    _videoController = controller;
+    _videoLoading = true;
+    _videoReady = false;
+    _videoError = false;
+    _bumpRevision();
 
-    unawaited(
-      controller
-          .initialize()
-          .then((_) async {
-            if (!mounted || _videoController != controller) return;
-            await controller.setVolume(0);
+    unawaited(_loadAndStartVideo(assetPath: assetPath, cache: cache, gen: gen));
+  }
+
+  Future<void> _loadAndStartVideo({
+    required String assetPath,
+    required MediaCacheService? cache,
+    required int gen,
+  }) async {
+    try {
+      VideoPlayerController? controller;
+      if (widget.videoControllerBuilder != null) {
+        if (cache != null) {
+          final ok = await cache.ensureAvailable(assetPath, highPriority: true);
+          if (!mounted || gen != _setupGeneration) return;
+          if (!ok) {
             setState(() {
-              _videoReady = true;
-              _videoError = false;
-            });
-            if (!widget.isExamVideoPhaseOne || widget.examPlaysRemaining > 0) {
-              widget.onExamVideoPlayStarted?.call();
-              await controller.play();
-            }
-          })
-          .catchError((_) {
-            if (!mounted || _videoController != controller) return;
-            setState(() {
+              _videoLoading = false;
               _videoReady = false;
               _videoError = true;
+              _bumpRevision();
             });
-          }),
-    );
+            return;
+          }
+        }
+        controller = widget.videoControllerBuilder!(assetPath);
+      } else if (cache != null) {
+        controller = await cache.obtainVideoController(
+          assetPath,
+          highPriority: true,
+        );
+      } else {
+        controller = VideoPlayerController.asset(assetPath);
+      }
+
+      if (!mounted || gen != _setupGeneration) {
+        if (controller != null) {
+          unawaited(controller.dispose());
+        }
+        return;
+      }
+
+      if (controller == null) {
+        setState(() {
+          _videoLoading = false;
+          _videoReady = false;
+          _videoError = true;
+          _bumpRevision();
+        });
+        return;
+      }
+
+      controller.addListener(_onVideoControllerUpdate);
+      _videoController = controller;
+
+      await controller.initialize();
+      if (!mounted ||
+          gen != _setupGeneration ||
+          _videoController != controller) {
+        return;
+      }
+      await controller.setVolume(0);
+      setState(() {
+        _videoLoading = false;
+        _videoReady = true;
+        _videoError = false;
+        _bumpRevision();
+      });
+
+      if (!widget.isExamVideoPhaseOne || widget.examPlaysRemaining > 0) {
+        widget.onExamVideoPlayStarted?.call();
+        await controller.play();
+      }
+    } catch (_) {
+      if (!mounted || gen != _setupGeneration) return;
+      setState(() {
+        _videoLoading = false;
+        _videoReady = false;
+        _videoError = true;
+        _bumpRevision();
+      });
+    }
   }
 
   void _disposeVideo() {
+    _setupGeneration++;
     final old = _videoController;
     _videoController = null;
+    _videoLoading = false;
     _videoReady = false;
     _videoError = false;
     if (old != null) {
@@ -148,6 +243,7 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
   @override
   void dispose() {
     _disposeVideo();
+    _stageRevision.dispose();
     super.dispose();
   }
 
@@ -156,12 +252,18 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
 
   Future<void> _replayClip() async {
     if (!_canReplay) return;
-    widget.onExamVideoPlayStarted?.call();
     final ctrl = _videoController;
     if (ctrl != null && _videoReady) {
+      widget.onExamVideoPlayStarted?.call();
       await ctrl.seekTo(Duration.zero);
       await ctrl.play();
-      if (mounted) setState(() {});
+      if (mounted) setState(_bumpRevision);
+    } else if (_videoError) {
+      _setupMedia(_resolveCache(context));
+      if (mounted) setState(_bumpRevision);
+    } else if (!widget.enableNativeVideo &&
+        widget.videoControllerBuilder == null) {
+      widget.onExamVideoPlayStarted?.call();
     }
   }
 
@@ -169,61 +271,90 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     final ctrl = _videoController;
     if (ctrl != null && _videoReady && isVideoStoppedAtEnd(ctrl.value)) {
       unawaited(_replayClip());
+    } else if (_videoError) {
+      _setupMedia(_resolveCache(context));
+      if (mounted) setState(_bumpRevision);
     }
   }
 
   void _openFullscreenVideo(BuildContext context) {
-    final ctrl = _videoController;
+    final cache = _resolveCache(context);
     final img = widget.question.primaryImageAsset;
     showDialog<void>(
       context: context,
       builder: (ctx) => Dialog.fullscreen(
         backgroundColor: Colors.black,
         child: SafeArea(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              GestureDetector(
-                key: const Key('fullscreen_video_tap_area'),
-                behavior: HitTestBehavior.opaque,
-                onTap: _handleVideoSurfaceTap,
-                child: Center(
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: ctrl != null && _videoReady
-                        ? VideoPlayer(ctrl)
-                        : (img != null
-                              ? Image.asset(img, fit: BoxFit.contain)
-                              : const Center(
-                                  child: Icon(
-                                    Icons.videocam_outlined,
-                                    color: Colors.white54,
-                                    size: 48,
+          child: ValueListenableBuilder<int>(
+            valueListenable: _stageRevision,
+            builder: (context, _, _) {
+              final ctrl = _videoController;
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  GestureDetector(
+                    key: const Key('fullscreen_video_tap_area'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _handleVideoSurfaceTap,
+                    child: Center(
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: _videoReady && ctrl != null
+                            ? VideoPlayer(ctrl)
+                            : _videoLoading
+                            ? const Center(
+                                child: SizedBox(
+                                  width: 34,
+                                  height: 34,
+                                  child: CircularProgressIndicator(
+                                    key: Key(
+                                      'fullscreen_video_loading_indicator',
+                                    ),
+                                    color: Colors.white,
+                                    strokeWidth: 2.8,
                                   ),
-                                )),
+                                ),
+                              )
+                            : (img != null
+                                  ? CachedAssetImage(
+                                      assetPath: img,
+                                      mediaCache: cache,
+                                      fit: BoxFit.contain,
+                                    )
+                                  : const Center(
+                                      child: Icon(
+                                        Icons.videocam_outlined,
+                                        color: Colors.white54,
+                                        size: 48,
+                                      ),
+                                    )),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Positioned(
-                top: 16,
-                left: 16,
-                child: _SubtleFullscreenIconButton(
-                  buttonKey: const Key('replay_fullscreen_video_btn'),
-                  icon: Icons.replay_rounded,
-                  tooltip: widget.strings.replayVideo,
-                  onPressed: _canReplay ? _replayClip : null,
-                ),
-              ),
-              Positioned(
-                top: 16,
-                right: 16,
-                child: _SubtleFullscreenIconButton(
-                  buttonKey: const Key('close_fullscreen_video_btn'),
-                  icon: Icons.close_rounded,
-                  onPressed: () => Navigator.of(ctx).pop(),
-                ),
-              ),
-            ],
+                  Positioned(
+                    top: 16,
+                    left: 16,
+                    child: _SubtleFullscreenIconButton(
+                      buttonKey: const Key('replay_fullscreen_video_btn'),
+                      icon: Icons.replay_rounded,
+                      tooltip: widget.strings.replayVideo,
+                      onPressed: !_videoLoading && _canReplay
+                          ? _replayClip
+                          : null,
+                    ),
+                  ),
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: _SubtleFullscreenIconButton(
+                      buttonKey: const Key('close_fullscreen_video_btn'),
+                      icon: Icons.close_rounded,
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -233,6 +364,8 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
   @override
   Widget build(BuildContext context) {
     final q = widget.question;
+    final cache = _resolveCache(context);
+
     if (q.mediaKind == QuestionMediaKind.none ||
         q.mediaKind == QuestionMediaKind.optionImages) {
       return const SizedBox.shrink();
@@ -244,6 +377,7 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
       if (imgPath == null) return const SizedBox.shrink();
       return _StaticOrFreezeImageCard(
         imageAssetPath: imgPath,
+        mediaCache: cache,
         strings: widget.strings,
         isFreezeFrame: widget.isVideoLockedToFreezeFrame,
       );
@@ -273,17 +407,25 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
                 children: [
                   if (_videoReady && _videoController != null)
                     VideoPlayer(_videoController!)
-                  else if (q.primaryImageAsset != null)
-                    Image.asset(
-                      q.primaryImageAsset!,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Center(
-                        child: Icon(
-                          Icons.videocam_outlined,
-                          color: Colors.white54,
-                          size: 42,
+                  else if (_videoLoading)
+                    const Center(
+                      child: SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: CircularProgressIndicator(
+                          key: Key('video_loading_indicator'),
+                          color: Colors.white,
+                          strokeWidth: 2.8,
                         ),
                       ),
+                    )
+                  else if (q.primaryImageAsset != null)
+                    CachedAssetImage(
+                      assetPath: q.primaryImageAsset!,
+                      mediaCache: cache,
+                      fit: BoxFit.contain,
+                      fallbackIcon: Icons.videocam_outlined,
+                      fallbackIconSize: 42,
                     )
                   else
                     const Center(
@@ -340,7 +482,7 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
             children: [
               OutlinedButton.icon(
                 key: const Key('practice_replay_video_btn'),
-                onPressed: _replayClip,
+                onPressed: _videoLoading ? null : _replayClip,
                 icon: const Icon(Icons.replay_rounded, size: 18),
                 label: Text(widget.strings.replayVideo),
               ),
@@ -416,7 +558,8 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
                       Expanded(
                         child: OutlinedButton.icon(
                           key: const Key('exam_watch_video_again_btn'),
-                          onPressed: widget.examPlaysRemaining > 0
+                          onPressed:
+                              !_videoLoading && widget.examPlaysRemaining > 0
                               ? _replayClip
                               : null,
                           icon: const Icon(Icons.replay_rounded),
@@ -458,11 +601,13 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
 class _StaticOrFreezeImageCard extends StatelessWidget {
   const _StaticOrFreezeImageCard({
     required this.imageAssetPath,
+    required this.mediaCache,
     required this.strings,
     required this.isFreezeFrame,
   });
 
   final String imageAssetPath;
+  final MediaCacheService? mediaCache;
   final AppStrings strings;
   final bool isFreezeFrame;
 
@@ -471,7 +616,11 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
     final semantic = SemanticColors.of(context);
     return GestureDetector(
       key: const Key('question_image_tap_area'),
-      onTap: () => showImageZoomLightbox(context, imageAssetPath),
+      onTap: () => showImageZoomLightbox(
+        context,
+        imageAssetPath,
+        mediaCache: mediaCache,
+      ),
       child: Container(
         key: const Key('question_image_surface'),
         constraints: const BoxConstraints(maxHeight: 240),
@@ -486,16 +635,11 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
           children: [
             AspectRatio(
               aspectRatio: 16 / 9,
-              child: Image.asset(
-                imageAssetPath,
+              child: CachedAssetImage(
+                assetPath: imageAssetPath,
+                mediaCache: mediaCache,
                 fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const Center(
-                  child: Icon(
-                    Icons.image_outlined,
-                    color: Colors.black38,
-                    size: 40,
-                  ),
-                ),
+                loadingKey: const Key('image_loading_indicator'),
               ),
             ),
             if (isFreezeFrame)
@@ -570,7 +714,12 @@ class _SubtleFullscreenIconButton extends StatelessWidget {
   }
 }
 
-void showImageZoomLightbox(BuildContext context, String imageAssetPath) {
+void showImageZoomLightbox(
+  BuildContext context,
+  String imageAssetPath, {
+  MediaCacheService? mediaCache,
+}) {
+  final effectiveCache = mediaCache ?? MediaCacheScope.maybeOf(context);
   showDialog<void>(
     context: context,
     builder: (ctx) {
@@ -619,21 +768,23 @@ void showImageZoomLightbox(BuildContext context, String imageAssetPath) {
                         child: Center(
                           child: Container(
                             key: const Key('lightbox_image_surface'),
+                            constraints: const BoxConstraints(
+                              minWidth: 120,
+                              minHeight: 120,
+                            ),
                             decoration: const BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.zero,
                             ),
-                            child: Image.asset(
-                              imageAssetPath,
+                            child: CachedAssetImage(
+                              assetPath: imageAssetPath,
+                              mediaCache: effectiveCache,
                               fit: BoxFit.contain,
-                              errorBuilder: (_, _, _) => const Padding(
-                                padding: EdgeInsets.all(24),
-                                child: Icon(
-                                  Icons.broken_image_outlined,
-                                  color: Colors.black45,
-                                  size: 48,
-                                ),
+                              loadingKey: const Key(
+                                'lightbox_loading_indicator',
                               ),
+                              fallbackIcon: Icons.broken_image_outlined,
+                              fallbackIconSize: 48,
                             ),
                           ),
                         ),
