@@ -75,12 +75,6 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 14),
             ],
-            _ExamSimulationCard(
-              strings: s,
-              subtitle: s.examSimulationSubtitle(lastExamSummary),
-              onStart: onStartNewExam,
-            ),
-            const SizedBox(height: 14),
             _LearningProgressCard(
               readinessPercent: readiness,
               stats: stats,
@@ -88,8 +82,13 @@ class HomeScreen extends StatelessWidget {
               onTap: onOpenProgressTab,
             ),
             const SizedBox(height: 14),
-            _PracticeHeroButton(
-              strings: s,
+            _ActionModeCard(
+              cardKey: const Key('smart_practice_cta'),
+              buttonKey: const Key('start_practice_button'),
+              icon: Icons.play_arrow_rounded,
+              title: s.smartPracticeTitle,
+              subtitle: s.smartPracticeSubtitle,
+              buttonLabel: s.startLabel,
               onTap: () {
                 final queue = controller.buildSmartPracticeQueue();
                 onStartPractice(
@@ -100,6 +99,16 @@ class HomeScreen extends StatelessWidget {
                   ),
                 );
               },
+            ),
+            const SizedBox(height: 14),
+            _ActionModeCard(
+              cardKey: const Key('start_exam_simulation_card'),
+              buttonKey: const Key('begin_exam_button'),
+              icon: Icons.timer_outlined,
+              title: s.examSimulationTitle,
+              subtitle: s.examSimulationSubtitle(lastExamSummary),
+              buttonLabel: s.beginLabel,
+              onTap: onStartNewExam,
             ),
             const SizedBox(height: 22),
             Text(
@@ -425,29 +434,45 @@ class _LearningProgressCard extends StatelessWidget {
   }
 }
 
-class _PracticeHeroButton extends StatelessWidget {
-  const _PracticeHeroButton({required this.strings, required this.onTap});
+class _ActionModeCard extends StatelessWidget {
+  const _ActionModeCard({
+    required this.cardKey,
+    required this.buttonKey,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.buttonLabel,
+    required this.onTap,
+  });
 
-  final AppStrings strings;
+  final Key cardKey;
+  final Key buttonKey;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String buttonLabel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+
     return Card(
-      color: scheme.primaryContainer,
       child: InkWell(
-        key: const Key('smart_practice_cta'),
-        onTap: onTap,
+        key: cardKey,
         borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          padding: const EdgeInsets.all(18),
           child: Row(
             children: [
-              Icon(
-                Icons.play_arrow_rounded,
-                color: scheme.onPrimaryContainer,
-                size: 28,
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: scheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: scheme.onSecondaryContainer, size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -455,28 +480,29 @@ class _PracticeHeroButton extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      strings.smartPracticeTitle,
-                      style: TextStyle(
+                      title,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: scheme.onPrimaryContainer,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
-                      strings.smartPracticeSubtitle,
+                      subtitle,
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: scheme.onPrimaryContainer.withValues(
-                          alpha: 0.85,
-                        ),
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
-              FilledButton(onPressed: onTap, child: Text(strings.startLabel)),
+              FilledButton.tonal(
+                key: buttonKey,
+                onPressed: onTap,
+                child: Text(buttonLabel),
+              ),
             ],
           ),
         ),
@@ -560,79 +586,6 @@ class _DrillTileCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ExamSimulationCard extends StatelessWidget {
-  const _ExamSimulationCard({
-    required this.strings,
-    required this.subtitle,
-    required this.onStart,
-  });
-
-  final AppStrings strings;
-  final String subtitle;
-  final VoidCallback onStart;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return Card(
-      child: InkWell(
-        key: const Key('start_exam_simulation_card'),
-        borderRadius: BorderRadius.circular(16),
-        onTap: onStart,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.timer_outlined,
-                  color: scheme.onSecondaryContainer,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      strings.examSimulationTitle,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              FilledButton.tonal(
-                key: const Key('begin_exam_button'),
-                onPressed: onStart,
-                child: Text(strings.beginLabel),
               ),
             ],
           ),

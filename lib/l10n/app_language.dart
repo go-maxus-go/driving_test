@@ -110,9 +110,7 @@ class AppStrings {
   String get examSimulationTitle =>
       isDe ? 'Prüfungssimulation' : 'Exam Simulation';
   String examSimulationSubtitle([String? lastSummary]) {
-    final base = isDe
-        ? '30 Fragen • 45 Min. • Max. 10 Fehlerpunkte'
-        : '30 questions • 45 min • Max 10 error points';
+    final base = isDe ? '30 Fragen • 45 Min.' : '30 questions • 45 min';
     if (lastSummary == null || lastSummary.isEmpty) return base;
     return '$lastSummary • $base';
   }
@@ -269,6 +267,8 @@ class AppStrings {
   String get reviewWrongOnly =>
       isDe ? 'Nur Fehler wiederholen' : 'Review Mistakes Only';
   String get reviewAll30 => isDe ? 'Alle 30 Fragen ansehen' : 'Review All 30';
+  String mistakesOnlyCheckboxLabel(int count) =>
+      isDe ? 'Nur Fehler ($count)' : 'Mistakes Only ($count)';
   String get takeAnotherExam =>
       isDe ? 'Neue Prüfung starten' : 'Start New Exam';
   String get newExamButton => isDe ? 'Neue Prüfung' : 'New Exam';

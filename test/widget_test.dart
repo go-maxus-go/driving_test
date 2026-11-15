@@ -3,6 +3,7 @@ import 'package:driving_exam/l10n/app_language.dart';
 import 'package:driving_exam/main.dart';
 import 'package:driving_exam/models/question.dart';
 import 'package:driving_exam/screens/about_screen.dart';
+import 'package:driving_exam/screens/formulas_screen.dart';
 import 'package:driving_exam/screens/home_screen.dart';
 import 'package:driving_exam/screens/settings_screen.dart';
 import 'package:driving_exam/services/progress_storage.dart';
@@ -50,7 +51,7 @@ CatalogRepository _sampleRepo() {
 
 void main() {
   testWidgets(
-    'AppShell provides clean burger menu drawer navigation, Settings screen, and About screen without bottom navigation bar',
+    'AppShell provides clean burger menu drawer navigation, Formulas screen, Settings screen, and About screen without bottom navigation bar',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
@@ -93,7 +94,16 @@ void main() {
       expect(find.byKey(const Key('drawer_nav_settings')), findsOneWidget);
       expect(find.byKey(const Key('drawer_nav_about')), findsOneWidget);
 
+      // Open Formulas Screen as a dedicated screen from drawer
+      await tester.tap(find.byKey(const Key('drawer_nav_formulas')));
+      await tester.pumpAndSettle();
+      expect(find.byType(FormulasScreen), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
       // Open Settings Screen from drawer
+      await tester.tap(find.byKey(const Key('burger_menu_btn')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('drawer_nav_settings')));
       await tester.pumpAndSettle();
 

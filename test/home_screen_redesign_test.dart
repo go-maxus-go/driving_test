@@ -41,7 +41,7 @@ CatalogRepository _sampleRepo() {
 
 void main() {
   testWidgets(
-    'HomeScreen has exam simulation on top, simplified progress, clean practice button, and 6 consistent drill cards',
+    'HomeScreen puts Exam Simulation under Practice with matching card styling and concise subtitle',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(400, 1000);
       tester.view.devicePixelRatio = 1.0;
@@ -70,26 +70,39 @@ void main() {
         ),
       );
 
-      // 1. Exam Simulation is at the top (top offset is less than progress card)
-      final examCardTop = tester
-          .getTopLeft(find.byKey(const Key('start_exam_simulation_card')))
-          .dy;
+      // 1. Order: Progress -> Practice -> Exam Simulation
       final progressCardTop = tester
           .getTopLeft(find.byKey(const Key('readiness_hero_card')))
           .dy;
       final practiceButtonTop = tester
           .getTopLeft(find.byKey(const Key('smart_practice_cta')))
           .dy;
+      final examCardTop = tester
+          .getTopLeft(find.byKey(const Key('start_exam_simulation_card')))
+          .dy;
 
-      expect(examCardTop, lessThan(progressCardTop));
       expect(progressCardTop, lessThan(practiceButtonTop));
+      expect(practiceButtonTop, lessThan(examCardTop));
 
-      // Exam card text is short and crisp
-      expect(find.text('Exam Simulation'), findsOneWidget);
-      expect(
-        find.text('30 questions • 45 min • Max 10 error points'),
-        findsOneWidget,
+      // Both Practice and Exam Simulation cards share identical surface styling
+      final practiceCard = tester.widget<Card>(
+        find.ancestor(
+          of: find.byKey(const Key('smart_practice_cta')),
+          matching: find.byType(Card),
+        ),
       );
+      final examCard = tester.widget<Card>(
+        find.ancestor(
+          of: find.byKey(const Key('start_exam_simulation_card')),
+          matching: find.byType(Card),
+        ),
+      );
+      expect(practiceCard.color, equals(examCard.color));
+
+      // Exam card text omits "Max 10 error points"
+      expect(find.text('Exam Simulation'), findsOneWidget);
+      expect(find.text('30 questions • 45 min'), findsOneWidget);
+      expect(find.textContaining('Max 10 error points'), findsNothing);
 
       // 2. Progress card header is simple 'PROGRESS'
       expect(find.text('PROGRESS'), findsOneWidget);

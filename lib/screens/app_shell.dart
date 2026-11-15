@@ -1,8 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../state/app_controller.dart';
-import '../widgets/formulas_modal.dart';
 import 'about_screen.dart';
+import 'formulas_screen.dart';
 import 'home_screen.dart';
 import 'settings_screen.dart';
 
@@ -190,7 +190,12 @@ class _AppShellState extends State<AppShell> {
                   ),
                   onTap: () {
                     Navigator.of(context).pop();
-                    FormulasModal.show(context, widget.controller.language);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            FormulasScreen(controller: widget.controller),
+                      ),
+                    );
                   },
                 ),
                 ListTile(
