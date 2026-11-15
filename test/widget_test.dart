@@ -1,7 +1,10 @@
 import 'package:driving_exam/data/catalog_repository.dart';
+import 'package:driving_exam/l10n/app_language.dart';
 import 'package:driving_exam/main.dart';
 import 'package:driving_exam/models/question.dart';
+import 'package:driving_exam/screens/about_screen.dart';
 import 'package:driving_exam/screens/home_screen.dart';
+import 'package:driving_exam/screens/settings_screen.dart';
 import 'package:driving_exam/services/progress_storage.dart';
 import 'package:driving_exam/state/app_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,9 +50,8 @@ CatalogRepository _sampleRepo() {
 
 void main() {
   testWidgets(
-    'Home Cockpit launches without login, switches DE/EN in 1 tap, and adapts mobile vs desktop nav',
+    'AppShell provides clean burger menu drawer navigation, Settings screen, and About screen without bottom navigation bar',
     (WidgetTester tester) async {
-      // Mobile browser viewport (390x844)
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -68,17 +70,10 @@ void main() {
         ),
       );
 
-      // Mobile renders bottom NavigationBar, not NavigationRail
-      expect(find.byType(NavigationBar), findsOneWidget);
+      // No bottom bar on screen
+      expect(find.byType(NavigationBar), findsNothing);
       expect(find.byType(NavigationRail), findsNothing);
-      expect(find.text('Smart Practice'), findsOneWidget);
-      expect(find.text('Most Mistakes'), findsOneWidget);
-      expect(find.text('Least Answered'), findsOneWidget);
-
-      // 1-tap switch to German
-      await tester.tap(find.byKey(const Key('lang_btn_de')));
-      await tester.pump();
-      expect(find.text('Smart-Training'), findsOneWidget);
+      expect(find.byKey(const Key('burger_menu_btn')), findsOneWidget);
 
       // Tap Smart Practice launches batch
       await tester.tap(find.byKey(const Key('smart_practice_cta')));
@@ -86,11 +81,55 @@ void main() {
       expect(launchedRequest, isNotNull);
       expect(launchedRequest!.questionIds.length, 2);
 
-      // Switch to wide desktop viewport (1024x768)
-      tester.view.physicalSize = const Size(1024, 768);
+      // Open burger menu drawer
+      await tester.tap(find.byKey(const Key('burger_menu_btn')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('app_drawer')), findsOneWidget);
+      expect(find.byKey(const Key('drawer_nav_train')), findsOneWidget);
+      expect(find.byKey(const Key('drawer_nav_topics')), findsOneWidget);
+      expect(find.byKey(const Key('drawer_nav_progress')), findsOneWidget);
+      expect(find.byKey(const Key('drawer_nav_formulas')), findsOneWidget);
+      expect(find.byKey(const Key('drawer_nav_settings')), findsOneWidget);
+      expect(find.byKey(const Key('drawer_nav_about')), findsOneWidget);
+
+      // Open Settings Screen from drawer
+      await tester.tap(find.byKey(const Key('drawer_nav_settings')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SettingsScreen), findsOneWidget);
+
+      // Switch language to German in Settings
+      await tester.tap(find.byKey(const Key('settings_lang_de')));
       await tester.pump();
-      expect(find.byType(NavigationRail), findsOneWidget);
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(controller.language, AppLanguage.de);
+
+      // Toggle dark mode in Settings
+      await tester.tap(find.byKey(const Key('settings_dark_mode_switch')));
+      await tester.pump();
+      expect(controller.isDarkMode, isTrue);
+
+      // Pop Settings
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      // Open burger menu drawer again and open About Screen
+      await tester.tap(find.byKey(const Key('burger_menu_btn')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('drawer_nav_about')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AboutScreen), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      // Open burger menu drawer and tap Topics
+      await tester.tap(find.byKey(const Key('burger_menu_btn')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('drawer_nav_topics')));
+      await tester.pumpAndSettle();
+
+      expect(find.text(controller.strings.navTopics), findsOneWidget);
     },
   );
 }
