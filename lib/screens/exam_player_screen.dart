@@ -97,17 +97,14 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
     final unanswered = exam.unansweredIndices(
       widget.controller.currentQuestionsById,
     );
-    final flaggedCount = exam.flaggedIds.length;
 
-    if (unanswered.isEmpty && flaggedCount == 0) {
+    if (unanswered.isEmpty) {
       await _finalizeAndNavigateToVerdict();
       return;
     }
 
     final s = widget.controller.strings;
-    final firstTargetIdx = unanswered.isNotEmpty
-        ? unanswered.first
-        : exam.questionIds.indexWhere((id) => exam.flaggedIds.contains(id));
+    final firstTargetIdx = unanswered.first;
 
     if (!mounted) return;
     await showModalBottomSheet<void>(
@@ -121,7 +118,7 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                s.unansweredWarningTitle(unanswered.length, flaggedCount),
+                s.unansweredWarningTitle(unanswered.length, 0),
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -135,7 +132,7 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
                     Navigator.of(ctx).pop();
                     widget.controller.setExamIndex(firstTargetIdx);
                   },
-                  child: Text('${s.jumpToFirstOpen} (Q${firstTargetIdx + 1})'),
+                  child: Text(s.jumpToQuestion(firstTargetIdx + 1)),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -237,7 +234,6 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
 
   void _openNavigatorGrid(ActiveExamSession exam) {
     final s = widget.controller.strings;
-    final semantic = SemanticColors.of(context);
     final byId = widget.controller.currentQuestionsById;
 
     showModalBottomSheet<void>(
@@ -270,7 +266,6 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
                         final answered =
                             q != null &&
                             (exam.submissions[qid]?.isAnsweredFor(q) ?? false);
-                        final flagged = exam.flaggedIds.contains(qid);
                         final current = exam.currentIndex == i;
 
                         return InkWell(
@@ -294,14 +289,12 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
                               border: Border.all(
                                 color: current
                                     ? Theme.of(ctx).colorScheme.primary
-                                    : (flagged
-                                          ? semantic.missedBorder
-                                          : Colors.transparent),
+                                    : Colors.transparent,
                                 width: 2,
                               ),
                             ),
                             child: Text(
-                              flagged ? '${i + 1}⚑' : '${i + 1}',
+                              '${i + 1}',
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w800,
@@ -337,7 +330,6 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
         }
 
         final semantic = SemanticColors.of(context);
-        final scheme = Theme.of(context).colorScheme;
 
         // Official TÜV rule: video questions start in Phase 1 until user taps
         // "Show Question & Answers" (which locks video to freeze-frame).
@@ -350,7 +342,6 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
 
         final submission =
             exam.submissions[q.questionId] ?? const AnswerSubmission();
-        final isFlagged = exam.flaggedIds.contains(q.questionId);
         final isLastQuestion = exam.currentIndex + 1 >= exam.questionIds.length;
         final lowTime = exam.remainingSeconds <= 300;
 
@@ -464,44 +455,6 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
                       if (q.mediaKind == QuestionMediaKind.staticImage ||
                           isFreezeFrame)
                         const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 9,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: scheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '${s.pointsBadge(q.points)} • ${q.isBasicMaterial ? "Grundstoff" : "Klasse B"}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          ActionChip(
-                            key: const Key('flag_exam_question_btn'),
-                            avatar: Icon(
-                              isFlagged
-                                  ? Icons.flag_rounded
-                                  : Icons.outlined_flag_rounded,
-                              size: 17,
-                              color: isFlagged ? semantic.missedBorder : null,
-                            ),
-                            label: Text(
-                              isFlagged ? s.flaggedQuestion : s.flagQuestion,
-                            ),
-                            onPressed: () =>
-                                widget.controller.toggleExamFlag(q.questionId),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
                       Text(
                         q.questionText,
                         style: const TextStyle(
@@ -591,7 +544,7 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
                                 label: Text(
                                   isLastQuestion
                                       ? s.finishAndGradeExam
-                                      : '${s.nextQuestion} (Q${exam.currentIndex + 2})',
+                                      : s.nextQuestion,
                                 ),
                               ),
                             ),

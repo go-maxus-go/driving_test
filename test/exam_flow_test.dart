@@ -133,6 +133,23 @@ void main() {
       await tester.pump();
       expect(find.text('Exam Basic Question 1'), findsOneWidget);
       expect(find.byKey(const Key('freeze_frame_badge')), findsOneWidget);
+      expect(find.text('Locked'), findsOneWidget);
+
+      // Verify points, topic name, and flag button are NOT displayed during exam
+      expect(find.textContaining('Points •'), findsNothing);
+      expect(find.textContaining('Grundstoff'), findsNothing);
+      expect(find.byKey(const Key('flag_exam_question_btn')), findsNothing);
+
+      // Verify Next Question button has clean label without Q suffix
+      expect(find.text('Next Question'), findsOneWidget);
+      expect(find.text('Next Question (Q2)'), findsNothing);
+
+      // Attempting to submit while Q1 is unanswered prompts "Jump to Question 1"
+      await tester.tap(find.byKey(const Key('header_submit_exam_btn')));
+      await tester.pumpAndSettle();
+      expect(find.text('Jump to Question 1'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('jump_to_open_question_btn')));
+      await tester.pumpAndSettle();
 
       // Select correct option A on Q1 -> now all 30 questions are answered!
       await tester.tap(find.byKey(const Key('option_card_A')));
