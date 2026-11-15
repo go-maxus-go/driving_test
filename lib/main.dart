@@ -14,7 +14,8 @@ import 'widgets/app_loading_screen.dart';
 import 'widgets/first_launch_language_dialog.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final binding = WidgetsFlutterBinding.ensureInitialized();
+  binding.deferFirstFrame();
   if (!kIsWeb) {
     try {
       fvp.registerWith(
@@ -26,51 +27,21 @@ void main() async {
       // Safe fallback when headless or unsupported environment.
     }
   }
-  runApp(const DrivingExamAppLauncher());
-}
 
-class DrivingExamAppLauncher extends StatefulWidget {
-  const DrivingExamAppLauncher({super.key});
-
-  @override
-  State<DrivingExamAppLauncher> createState() => _DrivingExamAppLauncherState();
-}
-
-class _DrivingExamAppLauncherState extends State<DrivingExamAppLauncher> {
-  AppController? _controller;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _init();
-  }
-
-  Future<void> _init() async {
-    try {
-      final ctrl = await AppController.initialize();
-      if (mounted) {
-        setState(() => _controller = ctrl);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _error = e.toString());
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ctrl = _controller;
-    if (ctrl == null) {
-      return MaterialApp(
+  try {
+    final ctrl = await AppController.initialize();
+    runApp(DrivingExamApp(controller: ctrl));
+  } catch (e) {
+    runApp(
+      MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
-        home: AppLoadingScreen(statusText: _error),
-      );
-    }
-    return DrivingExamApp(controller: ctrl);
+        home: AppLoadingScreen(statusText: e.toString()),
+      ),
+    );
+  } finally {
+    binding.allowFirstFrame();
   }
 }
 

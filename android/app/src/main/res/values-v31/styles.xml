@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ SplashScreen API branded blue launch screen -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowSplashScreenBackground">@color/launch_blue</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_car_icon</item>
+        <item name="android:statusBarColor">@color/launch_blue</item>
+        <item name="android:navigationBarColor">@color/launch_blue</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
