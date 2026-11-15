@@ -14,8 +14,8 @@ enum AppLanguage {
       this == AppLanguage.en ? AppLanguage.de : AppLanguage.en;
 
   String get assetPath => this == AppLanguage.de
-      ? 'assets/german_questions.json'
-      : 'assets/english_questions.json';
+      ? 'assets/driving_theory_questions_de_b.json'
+      : 'assets/driving_theory_questions_b.json';
 
   static AppLanguage fromCode(String? code) {
     if (code == null) return AppLanguage.en;
