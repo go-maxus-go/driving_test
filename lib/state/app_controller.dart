@@ -28,12 +28,16 @@ class AppController extends ChangeNotifier {
     int Function()? clockMs,
   }) : _clockMs = clockMs ?? (() => DateTime.now().millisecondsSinceEpoch),
        _language = initialData?.language ?? AppLanguage.en,
+       _hasChosenLanguage = initialData?.hasChosenLanguage ?? false,
        _isDarkMode = initialData?.isDarkMode ?? false,
        _progressById = Map<String, QuestionProgress>.from(
          initialData?.progressById ?? const {},
        ),
        _examHistory = List<ExamResultRecord>.from(
          initialData?.examHistory ?? const [],
+       ),
+       _starredThemeCodes = Set<String>.from(
+         initialData?.starredThemeCodes ?? const <String>{},
        ),
        _activeExam = initialData?.activeExam {
     _storage = storage;
@@ -44,9 +48,11 @@ class AppController extends ChangeNotifier {
   final int Function() _clockMs;
 
   AppLanguage _language;
+  bool _hasChosenLanguage;
   bool _isDarkMode;
   final Map<String, QuestionProgress> _progressById;
   final List<ExamResultRecord> _examHistory;
+  final Set<String> _starredThemeCodes;
   ActiveExamSession? _activeExam;
 
   static Future<AppController> initialize({
@@ -61,12 +67,14 @@ class AppController extends ChangeNotifier {
 
   AppLanguage get language => _language;
   AppStrings get strings => AppStrings(_language);
+  bool get hasChosenLanguage => _hasChosenLanguage;
   bool get isDarkMode => _isDarkMode;
   ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
 
   Map<String, QuestionProgress> get progressById =>
       Map.unmodifiable(_progressById);
   List<ExamResultRecord> get examHistory => List.unmodifiable(_examHistory);
+  Set<String> get starredThemeCodes => Set.unmodifiable(_starredThemeCodes);
   ActiveExamSession? get activeExam => _activeExam;
 
   List<Question> get currentQuestions => catalog.questionsFor(_language);
@@ -83,10 +91,23 @@ class AppController extends ChangeNotifier {
   bool isBookmarked(String questionId) =>
       _progressById[questionId]?.isBookmarked ?? false;
 
+  bool isThemeStarred(String themeCode) =>
+      _starredThemeCodes.contains(themeCode);
+
   CoverageStats get globalStats => CoverageStats.compute(
     currentQuestions.map((q) => q.questionId),
     _progressById,
   );
+
+  int get learnedQuestionsCount =>
+      currentQuestions.where((q) => progressFor(q.questionId).isLearned).length;
+
+  int get inTrainingQuestionsCount => currentQuestions
+      .where((q) => progressFor(q.questionId).isInTraining)
+      .length;
+
+  int get unseenQuestionsCount =>
+      currentQuestions.where((q) => progressFor(q.questionId).isUnseen).length;
 
   /// Composite Exam Readiness percentage (0..100):
   /// - Up to 65 points from catalog mastery coverage
@@ -117,7 +138,7 @@ class AppController extends ChangeNotifier {
     return (coverageComponent + examComponent).round().clamp(0, 100);
   }
 
-  // --- Language & Theme Preferences ---
+  // --- Language, First Launch & Theme Preferences ---
 
   Future<void> setLanguage(AppLanguage newLanguage) async {
     if (_language == newLanguage) return;
@@ -126,8 +147,23 @@ class AppController extends ChangeNotifier {
     await _persist();
   }
 
+  Future<void> confirmFirstLaunchLanguage(AppLanguage chosenLanguage) async {
+    _language = chosenLanguage;
+    _hasChosenLanguage = true;
+    notifyListeners();
+    await _persist();
+  }
+
   Future<void> toggleDarkMode() async {
     _isDarkMode = !_isDarkMode;
+    notifyListeners();
+    await _persist();
+  }
+
+  Future<void> toggleThemeStarred(String themeCode) async {
+    if (!_starredThemeCodes.remove(themeCode)) {
+      _starredThemeCodes.add(themeCode);
+    }
     notifyListeners();
     await _persist();
   }
@@ -373,9 +409,11 @@ class AppController extends ChangeNotifier {
   String exportBackupJson() {
     final payload = PersistedUserData(
       language: _language,
+      hasChosenLanguage: _hasChosenLanguage,
       isDarkMode: _isDarkMode,
       progressById: _progressById,
       examHistory: _examHistory,
+      starredThemeCodes: _starredThemeCodes,
       activeExam: _activeExam,
     ).toBackupJson();
     return const JsonEncoder.withIndent('  ').convert(payload);
@@ -386,6 +424,7 @@ class AppController extends ChangeNotifier {
       final decoded = jsonDecode(rawJson) as Map<String, dynamic>;
       final imported = PersistedUserData.fromBackupJson(decoded);
       _language = imported.language;
+      _hasChosenLanguage = imported.hasChosenLanguage;
       _isDarkMode = imported.isDarkMode;
       _progressById
         ..clear()
@@ -393,6 +432,9 @@ class AppController extends ChangeNotifier {
       _examHistory
         ..clear()
         ..addAll(imported.examHistory);
+      _starredThemeCodes
+        ..clear()
+        ..addAll(imported.starredThemeCodes);
       _activeExam = imported.activeExam;
       notifyListeners();
       await _persist();
@@ -405,6 +447,7 @@ class AppController extends ChangeNotifier {
   Future<void> resetAllProgress() async {
     _progressById.clear();
     _examHistory.clear();
+    _starredThemeCodes.clear();
     _activeExam = null;
     notifyListeners();
     await _storage.clear();
@@ -415,9 +458,11 @@ class AppController extends ChangeNotifier {
     await _storage.save(
       PersistedUserData(
         language: _language,
+        hasChosenLanguage: _hasChosenLanguage,
         isDarkMode: _isDarkMode,
         progressById: Map<String, QuestionProgress>.from(_progressById),
         examHistory: List<ExamResultRecord>.from(_examHistory),
+        starredThemeCodes: Set<String>.from(_starredThemeCodes),
         activeExam: _activeExam,
       ),
     );

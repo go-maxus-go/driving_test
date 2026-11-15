@@ -9,22 +9,28 @@ import 'exam_engine.dart';
 class PersistedUserData {
   const PersistedUserData({
     this.language = AppLanguage.en,
+    this.hasChosenLanguage = false,
     this.isDarkMode = false,
     this.progressById = const <String, QuestionProgress>{},
     this.examHistory = const <ExamResultRecord>[],
+    this.starredThemeCodes = const <String>{},
     this.activeExam,
   });
 
   final AppLanguage language;
+  final bool hasChosenLanguage;
   final bool isDarkMode;
   final Map<String, QuestionProgress> progressById;
   final List<ExamResultRecord> examHistory;
+  final Set<String> starredThemeCodes;
   final ActiveExamSession? activeExam;
 
   Map<String, dynamic> toBackupJson() => {
     'schemaVersion': 1,
     'language': language.code,
+    'hasChosenLanguage': hasChosenLanguage,
     'isDarkMode': isDarkMode,
+    'starredThemeCodes': starredThemeCodes.toList(),
     'progress': [for (final p in progressById.values) p.toJson()],
     'examHistory': [for (final e in examHistory) e.toJson()],
     if (activeExam != null) 'activeExam': activeExam!.toJson(),
@@ -46,12 +52,15 @@ class PersistedUserData {
         .toList(growable: false);
 
     final rawActive = json['activeExam'] as Map<String, dynamic>?;
+    final rawStarred = json['starredThemeCodes'] as List<dynamic>? ?? const [];
 
     return PersistedUserData(
       language: AppLanguage.fromCode(json['language'] as String?),
+      hasChosenLanguage: json['hasChosenLanguage'] as bool? ?? false,
       isDarkMode: json['isDarkMode'] as bool? ?? false,
       progressById: progressMap,
       examHistory: exams,
+      starredThemeCodes: rawStarred.map((e) => e.toString()).toSet(),
       activeExam: rawActive != null
           ? ActiveExamSession.fromJson(rawActive)
           : null,

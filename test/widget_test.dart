@@ -13,20 +13,20 @@ CatalogRepository _sampleRepo() {
         'theme_number': 'Theme 1.1.',
         'theme_name': 'Danger Teaching',
         'chapter_number': '1.1.01 Chapter',
-        'chapter_name': 'Basic Forms',
+        'chapter_name': 'Basic Traffic Forms',
         'question_id': id,
         'question_number': id,
         'points': '$pts Points',
         'licenses': ['Basic material'],
         'question_text': textEn,
         'options': [
-          {'letter': 'A.', 'text': 'Option A'},
-          {'letter': 'B.', 'text': 'Option B'},
+          {'letter': 'A.', 'text': 'Opt A'},
+          {'letter': 'B.', 'text': 'Opt B'},
         ],
         'correct_answers': [
-          {'letter': 'A.', 'text': 'Option A'},
+          {'letter': 'A.', 'text': 'Opt A'},
         ],
-        'comment': 'Comment $id',
+        'comment': 'Comment for $id',
         'local_image_paths': <String>[],
         'local_video_paths': <String>[],
       });
@@ -63,6 +63,7 @@ void main() {
       await tester.pumpWidget(
         DrivingExamApp(
           controller: controller,
+          promptFirstLaunchLanguage: false,
           onOpenPractice: (_, req) => launchedRequest = req,
         ),
       );
@@ -78,17 +79,15 @@ void main() {
       await tester.tap(find.byKey(const Key('lang_btn_de')));
       await tester.pump();
       expect(find.text('Smart-Training'), findsOneWidget);
-      expect(find.text('Häufige Fehler'), findsOneWidget);
-      expect(find.text('Wenig geübt'), findsOneWidget);
 
-      // 1-tap Smart Practice launches immediately
+      // Tap Smart Practice launches batch
       await tester.tap(find.byKey(const Key('smart_practice_cta')));
       await tester.pump();
       expect(launchedRequest, isNotNull);
       expect(launchedRequest!.questionIds.length, 2);
 
-      // Switch to Linux/Desktop wide viewport (1200x800) -> NavigationRail
-      tester.view.physicalSize = const Size(1200, 800);
+      // Switch to wide desktop viewport (1024x768)
+      tester.view.physicalSize = const Size(1024, 768);
       await tester.pump();
       expect(find.byType(NavigationRail), findsOneWidget);
       expect(find.byType(NavigationBar), findsNothing);

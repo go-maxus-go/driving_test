@@ -34,6 +34,21 @@ class AppStrings {
   String get navTrain => isDe ? 'Üben' : 'Train';
   String get navTopics => isDe ? 'Themen' : 'Topics';
   String get navProgress => isDe ? 'Fortschritt' : 'Progress';
+  String get navFormulas => isDe ? 'Formeln & Regeln' : 'Formulas & Rules';
+  String get navSettings => isDe ? 'Einstellungen' : 'Settings';
+  String get navAbout => isDe ? 'Über die App' : 'About App';
+
+  // First Launch Language Selector Modal
+  String get welcomeLanguageTitle =>
+      isDe ? 'Lernsprache wählen' : 'Choose your study language';
+  String get welcomeLanguageSubtitle => isDe
+      ? 'Englisch ist voreingestellt. Deutsch ist optional. Du kannst dies jederzeit in den Einstellungen ändern.'
+      : 'English is selected by default. German is optional. You can change this anytime in Settings.';
+  String get welcomeLanguageEnglish =>
+      isDe ? 'Englisch (Standard)' : 'English (Default)';
+  String get welcomeLanguageGerman =>
+      isDe ? 'Deutsch (Optional)' : 'Deutsch (Optional)';
+  String get welcomeContinue => isDe ? 'Weiter' : 'Continue';
 
   // Home Cockpit
   String get examReadiness => isDe ? 'PRÜFUNGSREIFE' : 'EXAM READINESS';
@@ -85,7 +100,11 @@ class AppStrings {
   String get drillVideosSub =>
       isDe ? 'Dynamische Gefahrensituationen' : 'Cockpit hazard animations';
   String get drillNumeric => isDe ? 'Zahlenfragen' : 'Number Input';
+  String get drillNumericSub =>
+      isDe ? 'Formeln & Distanzen' : 'Formulas & distances';
   String get drillSaved => isDe ? 'Gemerkt' : 'Saved';
+  String get drillSavedSub =>
+      isDe ? 'Persönliche Merkliste' : 'Your saved questions';
   String get noQuestionsInDrill => isDe
       ? 'Keine Fragen in dieser Auswahl vorhanden!'
       : 'No questions currently in this filter!';
@@ -93,11 +112,11 @@ class AppStrings {
   String get examSimulationTitle => isDe
       ? 'Prüfungssimulation (30 Fragen • 45 Min.)'
       : 'Exam Simulation (30 Qs • 45 min)';
-  String examSimulationSubtitle(String? lastSummary) {
+  String examSimulationSubtitle([String? lastSummary]) {
     final base = isDe
         ? 'Offizielle TÜV/DEKRA-Regeln • Max. 10 Fehlerpunkte'
         : 'Official TÜV/DEKRA rules • Max 10 error points';
-    if (lastSummary == null) return base;
+    if (lastSummary == null || lastSummary.isEmpty) return base;
     return '$base • $lastSummary';
   }
 
@@ -105,6 +124,8 @@ class AppStrings {
   String pointsBadge(int pts) => isDe ? '$pts Punkte' : '$pts Pts';
   String get checkAnswer => isDe ? 'Antwort prüfen' : 'Check Answer';
   String get nextQuestion => isDe ? 'Nächste Frage' : 'Next Question';
+  String get prevQuestion => isDe ? 'Zurück' : 'Prev';
+  String get retryQuestion => isDe ? 'Wiederholen' : 'Retry';
   String get finishSession => isDe ? 'Training abschließen' : 'Finish Session';
   String get skipQuestion => isDe ? 'Überspringen' : 'Skip';
   String get badgeCorrect => isDe ? 'Richtig' : 'Correct';
@@ -159,8 +180,9 @@ class AppStrings {
       isDe ? 'Standbild (Video beendet)' : 'Freeze-Frame (Video locked)';
   String get examStyleVideoToggle =>
       isDe ? 'TÜV-Videomodus' : 'Exam Video Mode';
+  String get fullScreenVideo => isDe ? 'Vollbild' : 'Full screen';
 
-  // Session Complete Dialog / Summary
+  // Session Complete
   String get sessionCompleteTitle =>
       isDe ? 'Durchgang abgeschlossen!' : 'Session Complete!';
   String get continueMoreQuestions =>
@@ -190,8 +212,12 @@ class AppStrings {
   String get topicScopeUnfinished =>
       isDe ? 'Offene & Fehler zuerst' : 'Unseen & Mistakes First';
   String get topicScopeAll => isDe ? 'Alle Fragen' : 'All Questions';
+  String get starTopicTooltip =>
+      isDe ? 'Thema favorisieren' : 'Star this topic';
+  String get unstarTopicTooltip =>
+      isDe ? 'Favorit entfernen' : 'Remove from starred';
 
-  // Formulas Modal
+  // Formulas Sheet
   String get formulasSheetTitle => isDe
       ? 'Wichtige Faustformeln & Grenzwerte'
       : 'Essential German Driving Formulas & Limits';
@@ -200,7 +226,6 @@ class AppStrings {
   String get submitExam => isDe ? 'Abgeben' : 'Submit';
   String get flagQuestion => isDe ? 'Markieren' : 'Flag';
   String get flaggedQuestion => isDe ? 'Markiert' : 'Flagged';
-  String get prevQuestion => isDe ? 'Zurück' : 'Prev';
   String get finishAndGradeExam =>
       isDe ? 'Prüfung abgeben & auswerten' : 'Finish & Grade Exam';
   String get questionOverviewTitle =>
@@ -216,6 +241,8 @@ class AppStrings {
         : 'You have $flagged flagged questions to review';
   }
 
+  String jumpToQuestion(int num) =>
+      isDe ? 'Zu Frage $num springen' : 'Jump to Question $num';
   String get jumpToFirstOpen =>
       isDe ? 'Zur offenen Frage springen' : 'Jump to Question';
   String get submitAnyway => isDe ? 'Trotzdem abgeben' : 'Submit Anyway';
@@ -258,12 +285,31 @@ class AppStrings {
       : 'Answer a few questions to see personalized weak-topic recommendations.';
   String errorRateBadge(int pct) =>
       isDe ? '$pct% Fehlerquote' : '$pct% error rate';
+
+  String get questionsStatusLearned => isDe ? 'Gelernt' : 'Learned';
+  String get questionsStatusLearnedSub => isDe
+      ? '2× hintereinander richtig beantwortet'
+      : 'Answered correctly 2 times in a row';
+  String get questionsStatusInTraining => isDe ? 'Im Training' : 'In Training';
+  String get questionsStatusInTrainingSub => isDe
+      ? 'Geübt, aber noch nicht sicher'
+      : 'Practiced, but not yet mastered';
+  String get questionsStatusUnseen => isDe ? 'Ungesehen' : 'Unseen';
+  String get questionsStatusUnseenSub =>
+      isDe ? 'Noch nie beantwortet' : 'Never answered yet';
+
   String get mockExamHistoryHeader => isDe
       ? 'PRÜFUNGSHISTORIE (BESTEHENSGRENZE: ≤ 10 PKT.)'
       : 'MOCK EXAM HISTORY (PASS: ≤ 10 PTS)';
+  String get mockExamHistoryButton =>
+      isDe ? 'Prüfungshistorie' : 'Mock Exam History';
+  String get mockExamHistorySubtitle => isDe
+      ? 'Frühere Prüfungssimulationen und Fehler einsehen'
+      : 'View past exam results and mistakes';
   String get noExamsTakenYet => isDe
       ? 'Noch keine Prüfungssimulation absolviert.'
       : 'No mock exams completed yet.';
+
   String get exposureHeader =>
       isDe ? 'WIE OFT WURDEN FRAGEN GEÜBT?' : 'QUESTION EXPOSURE DISTRIBUTION';
   String get exposureZero =>
@@ -272,6 +318,7 @@ class AppStrings {
       isDe ? 'Einmal beantwortet (1×)' : 'Answered once (1×)';
   String get exposureTwoPlus =>
       isDe ? 'Mehrfach geübt (2+×)' : 'Practiced 2+ times (2+×)';
+
   String get backupExportImport => isDe ? 'Backup / Reset' : 'Backup / Reset';
   String get exportProgressTitle =>
       isDe ? 'Fortschritt sichern (JSON)' : 'Backup Progress (JSON)';
@@ -285,4 +332,21 @@ class AppStrings {
   String get resetConfirmAction => isDe ? 'Zurücksetzen' : 'Reset Everything';
   String get copyToClipboard => isDe ? 'JSON kopieren' : 'Copy JSON';
   String get importButton => isDe ? 'Importieren' : 'Import';
+
+  // Settings Screen
+  String get settingsLanguageHeader => isDe ? 'SPRACHE' : 'LANGUAGE';
+  String get settingsThemeHeader => isDe ? 'DESIGN' : 'THEME';
+  String get settingsDarkMode => isDe ? 'Dunkelmodus' : 'Dark Mode';
+  String get settingsResetHeader => isDe ? 'FORTSCHRITT' : 'PROGRESS';
+  String get cancelAction => isDe ? 'Abbrechen' : 'Cancel';
+  String get progressResetSuccess => isDe
+      ? 'Fortschritt erfolgreich zurückgesetzt.'
+      : 'Progress reset successfully.';
+
+  // About Screen
+  String get aboutAppHeader =>
+      isDe ? 'Über Führerschein Klasse B' : 'About Class B Theory Trainer';
+  String get aboutAppBody => isDe
+      ? 'Diese App hilft dir bei der gezielten Vorbereitung auf die theoretische Führerscheinprüfung der Klasse B in Deutschland (TÜV / DEKRA).\n\n• Offizieller Fragenkatalog mit 1.592 Fragen (Grundstoff + Zusatzstoff B)\n• Dynamische Video- und Bildfragen sowie Zahlenfragen\n• Reale Prüfungssimulation mit 30 Fragen und 45 Minuten Zeitlimit\n• 100% lokal: Kein Account, kein Login, deine Daten bleiben auf deinem Gerät.'
+      : 'This app is designed to help you prepare effectively for the German Class B driving theory exam (TÜV / DEKRA).\n\n• Official catalog of 1,592 questions (Basic Material + Class B Add-on)\n• Dynamic video hazards, static scenes, and numeric formulas\n• Official 30-question mock exam simulation with 45-minute countdown\n• 100% local: No account or registration required, all progress stays on your device.';
 }

@@ -26,6 +26,15 @@ class QuestionProgress {
     return lastWasCorrect ? QuestionStatus.correct : QuestionStatus.wrong;
   }
 
+  /// True when the user answered correctly at least 2 consecutive times.
+  bool get isLearned => consecutiveCorrect >= 2;
+
+  /// True when the user has attempted the question but hasn't mastered it (2 in a row).
+  bool get isInTraining => attemptsCount > 0 && !isLearned;
+
+  /// True when never answered.
+  bool get isUnseen => attemptsCount == 0;
+
   /// True when the learner has ever made a mistake on this question.
   bool get hasHistoricalMistake => wrongCount > 0;
 
@@ -97,6 +106,8 @@ class CoverageStats {
     required this.correctQuestions,
     required this.wrongQuestions,
     required this.unseenQuestions,
+    this.learnedQuestions = 0,
+    this.inTrainingQuestions = 0,
     required this.totalAttempts,
     required this.totalCorrectAttempts,
     required this.totalWrongAttempts,
@@ -106,6 +117,8 @@ class CoverageStats {
   final int correctQuestions;
   final int wrongQuestions;
   final int unseenQuestions;
+  final int learnedQuestions;
+  final int inTrainingQuestions;
   final int totalAttempts;
   final int totalCorrectAttempts;
   final int totalWrongAttempts;
@@ -127,6 +140,8 @@ class CoverageStats {
     var correct = 0;
     var wrong = 0;
     var unseen = 0;
+    var learned = 0;
+    var inTraining = 0;
     var attempts = 0;
     var correctAtt = 0;
     var wrongAtt = 0;
@@ -140,6 +155,11 @@ class CoverageStats {
         attempts += p.attemptsCount;
         correctAtt += p.correctCount;
         wrongAtt += p.wrongCount;
+        if (p.isLearned) {
+          learned++;
+        } else {
+          inTraining++;
+        }
         if (p.lastWasCorrect) {
           correct++;
         } else {
@@ -153,6 +173,8 @@ class CoverageStats {
       correctQuestions: correct,
       wrongQuestions: wrong,
       unseenQuestions: unseen,
+      learnedQuestions: learned,
+      inTrainingQuestions: inTraining,
       totalAttempts: attempts,
       totalCorrectAttempts: correctAtt,
       totalWrongAttempts: wrongAtt,
