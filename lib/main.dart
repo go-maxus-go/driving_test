@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:fvp/fvp.dart' as fvp;
 import 'package:material_ui/material_ui.dart';
 
@@ -13,9 +16,29 @@ import 'theme/app_theme.dart';
 import 'widgets/app_loading_screen.dart';
 import 'widgets/first_launch_language_dialog.dart';
 
+bool get _isMobileFullscreenPlatform =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS);
+
+Future<void> configureImmersiveFullscreen() async {
+  if (!_isMobileFullscreenPlatform) return;
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await SystemChrome.setSystemUIChangeCallback((
+    systemOverlaysAreVisible,
+  ) async {
+    if (systemOverlaysAreVisible) {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+  });
+}
+
 void main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   binding.deferFirstFrame();
+  await configureImmersiveFullscreen();
+
   if (!kIsWeb) {
     try {
       fvp.registerWith(

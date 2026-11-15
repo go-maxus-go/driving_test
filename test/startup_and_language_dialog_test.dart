@@ -7,6 +7,8 @@ import 'package:driving_exam/state/app_controller.dart';
 import 'package:driving_exam/theme/app_theme.dart';
 import 'package:driving_exam/widgets/app_loading_screen.dart';
 import 'package:driving_exam/widgets/first_launch_language_dialog.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -51,6 +53,57 @@ void main() {
     expect(find.text('Loading test...'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
+
+  testWidgets(
+    'configureImmersiveFullscreen activates immersiveSticky mode on Android and iOS only',
+    (WidgetTester tester) async {
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          calls.add(call);
+          return null;
+        },
+      );
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      await configureImmersiveFullscreen();
+      expect(
+        calls.where((c) => c.method == 'SystemChrome.setEnabledSystemUIMode'),
+        isEmpty,
+      );
+
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await configureImmersiveFullscreen();
+      expect(
+        calls.any(
+          (c) =>
+              c.method == 'SystemChrome.setEnabledSystemUIMode' &&
+              c.arguments == 'SystemUiMode.immersiveSticky',
+        ),
+        isTrue,
+      );
+
+      calls.clear();
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      await configureImmersiveFullscreen();
+      expect(
+        calls.any(
+          (c) =>
+              c.method == 'SystemChrome.setEnabledSystemUIMode' &&
+              c.arguments == 'SystemUiMode.immersiveSticky',
+        ),
+        isTrue,
+      );
+    },
+  );
 
   testWidgets(
     'FirstLaunchLanguageDialog prompts on first launch with English default and German optional',
