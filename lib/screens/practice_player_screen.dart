@@ -33,7 +33,6 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
   Set<String> _selectedLetters = <String>{};
   String _numericValue = '';
   AnswerEvaluation? _evaluation;
-  bool _manualExplanationOpen = false;
   bool _sessionFinished = false;
 
   int _sessionCorrect = 0;
@@ -150,7 +149,6 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
     _selectedLetters = <String>{};
     _numericValue = '';
     _evaluation = null;
-    _manualExplanationOpen = false;
   }
 
   void _restartWithIds(List<String> newIds) {
@@ -402,7 +400,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                               const SizedBox(width: 8),
                             ],
                             if (_evaluation == null) ...[
-                              OutlinedButton.icon(
+                              OutlinedButton(
                                 key: const Key('skip_question_btn'),
                                 style: OutlinedButton.styleFrom(
                                   minimumSize: const Size(0, 52),
@@ -411,11 +409,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                                   ),
                                 ),
                                 onPressed: _skipCurrentQuestion,
-                                icon: const Icon(
-                                  Icons.skip_next_rounded,
-                                  size: 20,
-                                ),
-                                label: Text(s.skipQuestion),
+                                child: Text(s.skipQuestion),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -426,7 +420,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                                 ),
                               ),
                             ] else ...[
-                              OutlinedButton.icon(
+                              OutlinedButton(
                                 key: const Key('retry_question_btn'),
                                 style: OutlinedButton.styleFrom(
                                   minimumSize: const Size(0, 52),
@@ -435,35 +429,18 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                                   ),
                                 ),
                                 onPressed: _retryCurrentQuestion,
-                                icon: const Icon(
-                                  Icons.replay_rounded,
-                                  size: 18,
-                                ),
-                                label: Text(s.retryQuestion),
+                                child: Text(s.retryQuestion),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: FilledButton(
                                   key: const Key('primary_practice_cta'),
                                   onPressed: _advanceToNext,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          _currentIndex + 1 >= _queueIds.length
-                                              ? s.finishSession
-                                              : s.nextQuestion,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      const Icon(
-                                        Icons.arrow_forward_rounded,
-                                        size: 20,
-                                      ),
-                                    ],
+                                  child: Text(
+                                    _currentIndex + 1 >= _queueIds.length
+                                        ? s.finishSession
+                                        : s.nextQuestion,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ),
@@ -503,11 +480,6 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
     final semantic = SemanticColors.of(context);
     final eval = _evaluation;
 
-    final showExplanationAutomatically = eval != null && !eval.isCorrect;
-    final isExplanationVisible =
-        eval != null &&
-        (showExplanationAutomatically || _manualExplanationOpen);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -517,36 +489,13 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
           mediaWidget,
           const SizedBox(height: 14),
         ],
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              '${q.questionId} • ${q.themeName}',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-            if (q.isMotherVariant)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: scheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '-M',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: scheme.onSecondaryContainer,
-                  ),
-                ),
-              ),
-          ],
+        Text(
+          '${q.questionId} • ${q.themeName}',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -580,99 +529,44 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
             expectedAnswer: q.correctNumericAnswer,
             onChanged: (val) => setState(() => _numericValue = val),
           ),
-        if (eval != null) ...[
+        if (eval != null && q.comment.isNotEmpty) ...[
           const SizedBox(height: 14),
-          if (!isExplanationVisible)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: ActionChip(
-                key: const Key('expand_explanation_chip'),
-                avatar: const Icon(Icons.lightbulb_outline_rounded, size: 18),
-                label: Text(s.explanationTitle),
-                onPressed: () => setState(() => _manualExplanationOpen = true),
-              ),
-            )
-          else if (q.comment.isNotEmpty)
-            Container(
-              key: const Key('explanation_card'),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: semantic.subtleBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.lightbulb_rounded,
-                        size: 19,
-                        color: semantic.missedBorder,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        s.explanationTitle,
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    q.comment,
-                    style: const TextStyle(fontSize: 14.5, height: 1.45),
-                  ),
-                  if (q.isMotherVariant) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: scheme.secondaryContainer.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.auto_awesome_motion_rounded,
-                            size: 18,
-                            color: scheme.onSecondaryContainer,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  s.variantNoticeTitle,
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: scheme.onSecondaryContainer,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  s.variantNoticeBody,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: scheme.onSecondaryContainer,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+          Container(
+            key: const Key('explanation_card'),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: semantic.subtleBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.lightbulb_rounded,
+                      size: 19,
+                      color: semantic.missedBorder,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      s.explanationTitle,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  q.comment,
+                  style: const TextStyle(fontSize: 14.5, height: 1.45),
+                ),
+              ],
             ),
+          ),
         ],
       ],
     );

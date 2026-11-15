@@ -6,8 +6,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
 void main() {
+  test(
+    'computeDoubleTapZoomMatrix centers the tapped point inside the viewport',
+    () {
+      const viewport = Size(400, 800);
+      const tapped = Offset(260, 500);
+      final matrix = computeDoubleTapZoomMatrix(
+        tapPosition: tapped,
+        viewportSize: viewport,
+      );
+
+      expect(matrix.getMaxScaleOnAxis(), closeTo(2.0, 1e-6));
+      final tx = matrix.getTranslation().x;
+      final ty = matrix.getTranslation().y;
+      // Transformed point = scale * tapped + translation == viewport center (200, 400)
+      expect(2.0 * tapped.dx + tx, closeTo(viewport.width / 2, 1e-6));
+      expect(2.0 * tapped.dy + ty, closeTo(viewport.height / 2, 1e-6));
+    },
+  );
+
   testWidgets(
-    'QuestionMediaStage opens zoom lightbox with double-tap support on image tap, and positions replay/fullscreen controls below video',
+    'QuestionMediaStage renders signs on white surface, centers double-tap zoom, and keeps fullscreen video unrotated',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(412, 915);
       tester.view.devicePixelRatio = 1.0;
@@ -49,7 +68,7 @@ void main() {
 
       final strings = AppStrings(AppLanguage.en);
 
-      // 1. Image media stage: no overlay zoom icon, tapping opens lightbox
+      // 1. Image media stage: white background surface, no overlay zoom icon
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light(),
@@ -59,34 +78,54 @@ void main() {
         ),
       );
 
-      // No zoom icon button overlay on image
       expect(find.byIcon(Icons.zoom_in_rounded), findsNothing);
+      final inlineSurface = tester.widget<Container>(
+        find.byKey(const Key('question_image_surface')),
+      );
+      final inlineDeco = inlineSurface.decoration! as BoxDecoration;
+      expect(inlineDeco.color, Colors.white);
 
       // Tapping the image opens the full-screen zoom lightbox
       await tester.tap(find.byKey(const Key('question_image_tap_area')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('close_lightbox_btn')), findsOneWidget);
-      expect(find.byKey(const Key('lightbox_double_tap_area')), findsOneWidget);
+      final lightboxSurface = tester.widget<Container>(
+        find.byKey(const Key('lightbox_image_surface')),
+      );
+      expect(
+        (lightboxSurface.decoration! as BoxDecoration).color,
+        Colors.white,
+      );
 
-      // Double tap to zoom 2x
-      await tester.tap(find.byKey(const Key('lightbox_double_tap_area')));
+      // Double tap at an off-center coordinate (280, 540) to zoom 2x centered there
+      const tapTarget = Offset(280, 540);
+      await tester.tapAt(tapTarget);
       await tester.pump(const Duration(milliseconds: 50));
-      await tester.tap(find.byKey(const Key('lightbox_double_tap_area')));
+      await tester.tapAt(tapTarget);
       await tester.pumpAndSettle();
 
       final interactiveViewer = tester.widget<InteractiveViewer>(
         find.byType(InteractiveViewer),
       );
       final matrix = interactiveViewer.transformationController!.value;
-      expect(matrix.getMaxScaleOnAxis(), greaterThanOrEqualTo(2.0));
+      expect(matrix.getMaxScaleOnAxis(), closeTo(2.0, 1e-6));
+      final viewerBox = tester.getSize(find.byType(InteractiveViewer));
+      expect(
+        2.0 * tapTarget.dx + matrix.getTranslation().x,
+        closeTo(viewerBox.width / 2, 1.0),
+      );
+      expect(
+        2.0 * tapTarget.dy + matrix.getTranslation().y,
+        closeTo(viewerBox.height / 2, 1.0),
+      );
 
-      // Close lightbox
+      // Close lightbox via subtle outlined button
       await tester.tap(find.byKey(const Key('close_lightbox_btn')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('close_lightbox_btn')), findsNothing);
 
-      // 2. Video media stage: replay and fullscreen controls are below the video
+      // 2. Video media stage: fullscreen opens without RotatedBox even in portrait
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light(),
@@ -106,7 +145,6 @@ void main() {
       );
       expect(find.byKey(const Key('video_fullscreen_btn')), findsOneWidget);
 
-      // Tap fullscreen button to open fullscreen dialog
       await tester.tap(find.byKey(const Key('video_fullscreen_btn')));
       await tester.pumpAndSettle();
 
@@ -114,6 +152,8 @@ void main() {
         find.byKey(const Key('close_fullscreen_video_btn')),
         findsOneWidget,
       );
+      expect(find.byType(RotatedBox), findsNothing);
+
       await tester.tap(find.byKey(const Key('close_fullscreen_video_btn')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('close_fullscreen_video_btn')), findsNothing);

@@ -57,7 +57,7 @@ CatalogRepository _buildPlayerTestRepo() {
 
 void main() {
   testWidgets(
-    'PracticePlayer highlights options with checkboxes, retry/previous navigation, and clean explanation without points clutter',
+    'PracticePlayer auto-expands explanation on right/wrong, removes -M notice, and keeps Skip/Retry label-only',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(412, 915);
       tester.view.devicePixelRatio = 1.0;
@@ -91,69 +91,54 @@ void main() {
         '2 left',
       );
 
-      // 1. Language selector is not present in practice player AppBar
-      expect(find.byKey(const Key('peek_translation_btn')), findsNothing);
+      // Skip button is label-only (no forward/skip icon)
+      expect(find.byKey(const Key('skip_question_btn')), findsOneWidget);
+      expect(find.byIcon(Icons.skip_next_rounded), findsNothing);
 
-      // 2. Select A (correct) and C (wrong), leaving B (correct) unselected
+      // No -M badge clutter on header
+      expect(find.text('-M'), findsNothing);
+
+      // Select A (correct) and C (wrong), leaving B (correct) unselected
       await tester.tap(find.byKey(const Key('option_card_A')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('option_card_C')));
       await tester.pump();
 
-      // Submit via fixed-coordinate primary CTA
       await tester.tap(find.byKey(const Key('primary_practice_cta')));
       await tester.pump();
 
-      // 3. Checkboxes remain visible:
-      // A (selected) -> check_box_rounded
-      // C (selected) -> check_box_rounded
-      // B (unselected) -> check_box_outline_blank_rounded
+      // Checkboxes remain visible
       expect(find.byIcon(Icons.check_box_rounded), findsNWidgets(2));
       expect(
         find.byIcon(Icons.check_box_outline_blank_rounded),
         findsOneWidget,
       );
 
-      // 4. Badges are displayed with 1-word label for wrong ('Wrong')
+      // Badges are displayed with 1-word label for wrong ('Wrong')
       expect(find.byKey(const Key('badge_correct_A')), findsOneWidget);
       expect(find.byKey(const Key('badge_missed_B')), findsOneWidget);
       expect(find.byKey(const Key('badge_wrong_C')), findsOneWidget);
       expect(find.text('Wrong'), findsOneWidget);
 
-      // 5. No "+4 Error Points" banner during practice (clean learning view)
-      expect(find.textContaining('Error Points'), findsNothing);
-
-      // 6. Explanation card is displayed with clean header 'Explanation'
+      // Explanation card is displayed without Exam Variation Question (-M) box
       expect(find.byKey(const Key('explanation_card')), findsOneWidget);
       expect(find.text('Explanation'), findsOneWidget);
       expect(
         find.text('Defensive driving means anticipating mistakes.'),
         findsOneWidget,
       );
-      expect(find.text('Exam Variation Question (-M)'), findsOneWidget);
+      expect(find.textContaining('Exam Variation Question'), findsNothing);
 
-      // 7. Counter updated: 0 correct, 1 wrong, 1 left
-      expect(
-        tester.widget<Text>(find.byKey(const Key('session_wrong_count'))).data,
-        '1',
-      );
-      expect(
-        tester
-            .widget<Text>(find.byKey(const Key('session_remaining_count')))
-            .data,
-        '1 left',
-      );
-
-      // 8. Retry button is available to re-answer the same question
+      // Retry button is label-only (no replay icon)
       expect(find.byKey(const Key('retry_question_btn')), findsOneWidget);
+      expect(find.byIcon(Icons.replay_rounded), findsNothing);
       await tester.tap(find.byKey(const Key('retry_question_btn')));
       await tester.pump();
 
-      // State is reset: submit button is back, badges gone
       expect(find.byKey(const Key('badge_wrong_C')), findsNothing);
       expect(find.text('Check Answer'), findsOneWidget);
 
-      // Now answer correctly: select A and B
+      // Now answer correctly: select A and B -> Explanation is IMMEDIATELY expanded
       await tester.tap(find.byKey(const Key('option_card_A')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('option_card_B')));
@@ -163,19 +148,25 @@ void main() {
 
       expect(find.byKey(const Key('badge_correct_A')), findsOneWidget);
       expect(find.byKey(const Key('badge_correct_B')), findsOneWidget);
+      expect(find.byKey(const Key('expand_explanation_chip')), findsNothing);
+      expect(find.byKey(const Key('explanation_card')), findsOneWidget);
+      expect(
+        find.text('Defensive driving means anticipating mistakes.'),
+        findsOneWidget,
+      );
 
-      // 9. Advance to Question 2 (Numeric Input)
+      // Advance to Question 2 (Numeric Input)
       await tester.tap(find.byKey(const Key('primary_practice_cta')));
       await tester.pump();
 
       expect(find.text('Minimum tire tread depth in mm?'), findsOneWidget);
 
-      // 10. Previous button is present on Question 2
+      // Previous button (back arrow) is present on Question 2
       expect(find.byKey(const Key('prev_question_btn')), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
       await tester.tap(find.byKey(const Key('prev_question_btn')));
       await tester.pump();
 
-      // Back on Question 1!
       expect(
         find.text('What should you understand by defensive driving?'),
         findsOneWidget,
@@ -185,7 +176,7 @@ void main() {
       await tester.tap(find.byKey(const Key('skip_question_btn')));
       await tester.pump();
 
-      // Enter 1.6 on custom numpad (matches expected "1,6")
+      // Enter 1.6 on custom numpad
       await tester.tap(find.byKey(const Key('numpad_key_1')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('numpad_key_decimal')));
@@ -196,9 +187,8 @@ void main() {
       await tester.tap(find.byKey(const Key('primary_practice_cta')));
       await tester.pump();
 
-      // Explanation can be expanded on demand in 1 tap when answered right
-      await tester.tap(find.byKey(const Key('expand_explanation_chip')));
-      await tester.pump();
+      // Explanation is expanded immediately without needing an extra tap!
+      expect(find.byKey(const Key('expand_explanation_chip')), findsNothing);
       expect(find.text('Minimum legal tread depth is 1.6 mm.'), findsOneWidget);
     },
   );

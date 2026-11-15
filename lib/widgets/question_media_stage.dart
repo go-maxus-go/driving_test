@@ -5,6 +5,26 @@ import 'package:video_player/video_player.dart';
 
 import '../l10n/app_language.dart';
 import '../models/question.dart';
+import '../theme/app_theme.dart';
+
+Matrix4 computeDoubleTapZoomMatrix({
+  required Offset tapPosition,
+  required Size viewportSize,
+  double scale = 2.0,
+}) {
+  final minDx = -(scale - 1.0) * viewportSize.width;
+  final minDy = -(scale - 1.0) * viewportSize.height;
+  final dx = (viewportSize.width / 2.0 - scale * tapPosition.dx).clamp(
+    minDx,
+    0.0,
+  );
+  final dy = (viewportSize.height / 2.0 - scale * tapPosition.dy).clamp(
+    minDy,
+    0.0,
+  );
+  return Matrix4.diagonal3Values(scale, scale, 1.0)
+    ..setTranslationRaw(dx, dy, 0.0);
+}
 
 class QuestionMediaStage extends StatefulWidget {
   const QuestionMediaStage({
@@ -130,42 +150,34 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
       builder: (ctx) => Dialog.fullscreen(
         backgroundColor: Colors.black,
         child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isPortrait = constraints.maxHeight > constraints.maxWidth;
-              Widget content = AspectRatio(
-                aspectRatio: 16 / 9,
-                child: ctrl != null && _videoReady
-                    ? VideoPlayer(ctrl)
-                    : (img != null
-                          ? Image.asset(img, fit: BoxFit.contain)
-                          : const Center(
-                              child: Icon(
-                                Icons.videocam_outlined,
-                                color: Colors.white54,
-                                size: 48,
-                              ),
-                            )),
-              );
-              if (isPortrait) {
-                content = RotatedBox(quarterTurns: 1, child: content);
-              }
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  Center(child: content),
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: IconButton.filledTonal(
-                      key: const Key('close_fullscreen_video_btn'),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ),
-                ],
-              );
-            },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Center(
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: ctrl != null && _videoReady
+                      ? VideoPlayer(ctrl)
+                      : (img != null
+                            ? Image.asset(img, fit: BoxFit.contain)
+                            : const Center(
+                                child: Icon(
+                                  Icons.videocam_outlined,
+                                  color: Colors.white54,
+                                  size: 48,
+                                ),
+                              )),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: _SubtleFullscreenCloseButton(
+                  buttonKey: const Key('close_fullscreen_video_btn'),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -390,15 +402,21 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final semantic = SemanticColors.of(context);
     return GestureDetector(
       key: const Key('question_image_tap_area'),
       onTap: () => showImageZoomLightbox(context, imageAssetPath),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          constraints: const BoxConstraints(maxHeight: 240),
-          width: double.infinity,
-          color: Colors.black,
+      child: Container(
+        key: const Key('question_image_surface'),
+        constraints: const BoxConstraints(maxHeight: 240),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: semantic.subtleBorder),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(13),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -410,7 +428,7 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
                   errorBuilder: (_, _, _) => const Center(
                     child: Icon(
                       Icons.image_outlined,
-                      color: Colors.white54,
+                      color: Colors.black38,
                       size: 40,
                     ),
                   ),
@@ -459,52 +477,115 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
   }
 }
 
+class _SubtleFullscreenCloseButton extends StatelessWidget {
+  const _SubtleFullscreenCloseButton({
+    required this.buttonKey,
+    required this.onPressed,
+  });
+
+  final Key buttonKey;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.outlined(
+      key: buttonKey,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        foregroundColor: Colors.white70,
+        backgroundColor: Colors.black.withValues(alpha: 0.35),
+        side: const BorderSide(color: Colors.white38, width: 1.0),
+      ),
+      icon: const Icon(Icons.close_rounded, size: 20),
+    );
+  }
+}
+
 void showImageZoomLightbox(BuildContext context, String imageAssetPath) {
   showDialog<void>(
     context: context,
     builder: (ctx) {
       final transformCtrl = TransformationController();
+      TapDownDetails? doubleTapDetails;
       return Dialog.fullscreen(
         backgroundColor: Colors.black,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            GestureDetector(
-              key: const Key('lightbox_double_tap_area'),
-              onDoubleTap: () {
-                if (transformCtrl.value.isIdentity()) {
-                  transformCtrl.value = Matrix4.diagonal3Values(2.0, 2.0, 1.0);
-                } else {
-                  transformCtrl.value = Matrix4.identity();
-                }
-              },
-              child: InteractiveViewer(
-                transformationController: transformCtrl,
-                minScale: 0.8,
-                maxScale: 4.5,
-                child: Center(
-                  child: Image.asset(
-                    imageAssetPath,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => const Icon(
-                      Icons.broken_image_outlined,
-                      color: Colors.white54,
-                      size: 48,
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final viewportSize = Size(
+                constraints.maxWidth,
+                constraints.maxHeight,
+              );
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  GestureDetector(
+                    key: const Key('lightbox_double_tap_area'),
+                    onDoubleTapDown: (details) {
+                      doubleTapDetails = details;
+                    },
+                    onDoubleTap: () {
+                      if (transformCtrl.value.isIdentity()) {
+                        final tapPos =
+                            doubleTapDetails?.localPosition ??
+                            Offset(
+                              viewportSize.width / 2,
+                              viewportSize.height / 2,
+                            );
+                        transformCtrl.value = computeDoubleTapZoomMatrix(
+                          tapPosition: tapPos,
+                          viewportSize: viewportSize,
+                        );
+                      } else {
+                        transformCtrl.value = Matrix4.identity();
+                      }
+                    },
+                    child: InteractiveViewer(
+                      transformationController: transformCtrl,
+                      minScale: 0.8,
+                      maxScale: 4.5,
+                      child: SizedBox(
+                        width: viewportSize.width,
+                        height: viewportSize.height,
+                        child: Center(
+                          child: Container(
+                            key: const Key('lightbox_image_surface'),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.asset(
+                                imageAssetPath,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, _, _) => const Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Icon(
+                                    Icons.broken_image_outlined,
+                                    color: Colors.black45,
+                                    size: 48,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 16,
-              right: 16,
-              child: IconButton.filledTonal(
-                key: const Key('close_lightbox_btn'),
-                onPressed: () => Navigator.of(ctx).pop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ),
-          ],
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: _SubtleFullscreenCloseButton(
+                      buttonKey: const Key('close_lightbox_btn'),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       );
     },

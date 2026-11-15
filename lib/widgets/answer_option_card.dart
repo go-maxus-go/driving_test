@@ -149,18 +149,23 @@ class AnswerOptionCard extends StatelessWidget {
                   GestureDetector(
                     onTap: () =>
                         showImageZoomLightbox(context, option.imageAssetPath!),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: 76,
-                        height: 76,
+                    child: Container(
+                      key: Key('option_sign_surface_${option.letter}'),
+                      width: 76,
+                      height: 76,
+                      decoration: BoxDecoration(
                         color: Colors.white,
-                        padding: const EdgeInsets.all(4),
-                        child: Image.asset(
-                          option.imageAssetPath!,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) =>
-                              const Icon(Icons.traffic_rounded, size: 36),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: semantic.subtleBorder),
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: Image.asset(
+                        option.imageAssetPath!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const Icon(
+                          Icons.traffic_rounded,
+                          size: 36,
+                          color: Colors.black54,
                         ),
                       ),
                     ),
