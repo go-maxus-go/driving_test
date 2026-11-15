@@ -122,6 +122,56 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     }
   }
 
+  void _openFullscreenVideo(BuildContext context) {
+    final ctrl = _videoController;
+    final img = widget.question.primaryImageAsset;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isPortrait = constraints.maxHeight > constraints.maxWidth;
+              Widget content = AspectRatio(
+                aspectRatio: 16 / 9,
+                child: ctrl != null && _videoReady
+                    ? VideoPlayer(ctrl)
+                    : (img != null
+                          ? Image.asset(img, fit: BoxFit.contain)
+                          : const Center(
+                              child: Icon(
+                                Icons.videocam_outlined,
+                                color: Colors.white54,
+                                size: 48,
+                              ),
+                            )),
+              );
+              if (isPortrait) {
+                content = RotatedBox(quarterTurns: 1, child: content);
+              }
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Center(child: content),
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: IconButton.filledTonal(
+                      key: const Key('close_fullscreen_video_btn'),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final q = widget.question;
@@ -176,27 +226,6 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
                         size: 42,
                       ),
                     ),
-                  if (!widget.isExamVideoPhaseOne)
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: FilledButton.tonalIcon(
-                        key: const Key('practice_replay_video_btn'),
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size(0, 36),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                        ),
-                        onPressed: _replayClip,
-                        icon: const Icon(Icons.replay_rounded, size: 18),
-                        label: Text(
-                          widget.strings.replayVideo,
-                          style: const TextStyle(fontSize: 12.5),
-                        ),
-                      ),
-                    ),
                   if (_videoReady &&
                       _videoController != null &&
                       widget.allowVideoScrubbing &&
@@ -241,6 +270,26 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
             ),
           ),
         ),
+        if (!widget.isExamVideoPhaseOne) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              OutlinedButton.icon(
+                key: const Key('practice_replay_video_btn'),
+                onPressed: _replayClip,
+                icon: const Icon(Icons.replay_rounded, size: 18),
+                label: Text(widget.strings.replayVideo),
+              ),
+              const Spacer(),
+              IconButton.filledTonal(
+                key: const Key('video_fullscreen_btn'),
+                tooltip: 'Full Screen',
+                icon: const Icon(Icons.fullscreen_rounded),
+                onPressed: () => _openFullscreenVideo(context),
+              ),
+            ],
+          ),
+        ],
         if (widget.isExamVideoPhaseOne) ...[
           const SizedBox(height: 16),
           Card(
@@ -342,6 +391,7 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      key: const Key('question_image_tap_area'),
       onTap: () => showImageZoomLightbox(context, imageAssetPath),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
@@ -401,17 +451,6 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              Positioned(
-                right: 8,
-                bottom: 8,
-                child: IconButton.filledTonal(
-                  tooltip: strings.zoomImageTooltip,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () =>
-                      showImageZoomLightbox(context, imageAssetPath),
-                  icon: const Icon(Icons.zoom_in_rounded, size: 18),
-                ),
-              ),
             ],
           ),
         ),
@@ -423,36 +462,51 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
 void showImageZoomLightbox(BuildContext context, String imageAssetPath) {
   showDialog<void>(
     context: context,
-    builder: (ctx) => Dialog.fullscreen(
-      backgroundColor: Colors.black,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          InteractiveViewer(
-            minScale: 0.8,
-            maxScale: 4.5,
-            child: Center(
-              child: Image.asset(
-                imageAssetPath,
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const Icon(
-                  Icons.broken_image_outlined,
-                  color: Colors.white54,
-                  size: 48,
+    builder: (ctx) {
+      final transformCtrl = TransformationController();
+      return Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              key: const Key('lightbox_double_tap_area'),
+              onDoubleTap: () {
+                if (transformCtrl.value.isIdentity()) {
+                  transformCtrl.value = Matrix4.diagonal3Values(2.0, 2.0, 1.0);
+                } else {
+                  transformCtrl.value = Matrix4.identity();
+                }
+              },
+              child: InteractiveViewer(
+                transformationController: transformCtrl,
+                minScale: 0.8,
+                maxScale: 4.5,
+                child: Center(
+                  child: Image.asset(
+                    imageAssetPath,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            top: 16,
-            right: 16,
-            child: IconButton.filledTonal(
-              onPressed: () => Navigator.of(ctx).pop(),
-              icon: const Icon(Icons.close_rounded),
+            Positioned(
+              top: 16,
+              right: 16,
+              child: IconButton.filledTonal(
+                key: const Key('close_lightbox_btn'),
+                onPressed: () => Navigator.of(ctx).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
             ),
-          ),
-        ],
-      ),
-    ),
+          ],
+        ),
+      );
+    },
   );
 }

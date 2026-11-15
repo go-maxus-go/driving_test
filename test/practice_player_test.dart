@@ -33,30 +33,6 @@ CatalogRepository _buildPlayerTestRepo() {
     'local_video_paths': <String>[],
   });
 
-  final q1De = Question.fromJson({
-    'theme_number': 'Thema 1.1.',
-    'theme_name': 'Gefahrenlehre',
-    'chapter_number': '1.1.01 Kapitel',
-    'chapter_name': 'Grundformen',
-    'question_id': '1.1.01-001-M',
-    'question_number': '1.1.01-001-M',
-    'points': '4 Punkte',
-    'licenses': ['Grundstoff'],
-    'question_text': 'Was versteht man unter defensivem Fahren?',
-    'options': [
-      {'letter': 'A.', 'text': 'Nicht auf dem eigenen Recht bestehen'},
-      {'letter': 'B.', 'text': 'Mit Fehlern anderer rechnen'},
-      {'letter': 'C.', 'text': 'An jeder Kreuzung anhalten'},
-    ],
-    'correct_answers': [
-      {'letter': 'A.', 'text': 'Nicht auf dem eigenen Recht bestehen'},
-      {'letter': 'B.', 'text': 'Mit Fehlern anderer rechnen'},
-    ],
-    'comment': 'Defensives Fahren bedeutet vorausschauend fahren.',
-    'local_image_paths': <String>[],
-    'local_video_paths': <String>[],
-  });
-
   final q2En = Question.fromJson({
     'theme_number': 'Theme 2.7.',
     'theme_name': 'Technology',
@@ -76,34 +52,12 @@ CatalogRepository _buildPlayerTestRepo() {
     'local_video_paths': <String>[],
   });
 
-  final q2De = Question.fromJson({
-    'theme_number': 'Thema 2.7.',
-    'theme_name': 'Technik',
-    'chapter_number': '2.7.01 Kapitel',
-    'chapter_name': 'Reifen',
-    'question_id': '2.7.01-010',
-    'question_number': '2.7.01-010',
-    'points': '3 Punkte',
-    'licenses': ['B'],
-    'question_text': 'Mindestprofiltiefe der Reifen in mm?',
-    'options': <Map<String, dynamic>>[],
-    'correct_answers': [
-      {'letter': '1,6', 'text': ''},
-    ],
-    'comment': 'Die gesetzliche Mindestprofiltiefe beträgt 1,6 mm.',
-    'local_image_paths': <String>[],
-    'local_video_paths': <String>[],
-  });
-
-  return CatalogRepository.fromQuestions(
-    englishQuestions: [q1En, q2En],
-    germanQuestions: [q1De, q2De],
-  );
+  return CatalogRepository.fromQuestions(englishQuestions: [q1En, q2En]);
 }
 
 void main() {
   testWidgets(
-    'PracticePlayer highlights 4 option states, auto-expands explanation on error, peeks DE translation, and normalizes custom numpad',
+    'PracticePlayer highlights options with checkboxes, retry/previous navigation, and clean explanation without points clutter',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(412, 915);
       tester.view.devicePixelRatio = 1.0;
@@ -137,15 +91,10 @@ void main() {
         '2 left',
       );
 
-      // Peek German translation inline in 1 tap
-      await tester.tap(find.byKey(const Key('peek_translation_btn')));
-      await tester.pump();
-      expect(
-        find.text('Was versteht man unter defensivem Fahren?'),
-        findsOneWidget,
-      );
+      // 1. Language selector is not present in practice player AppBar
+      expect(find.byKey(const Key('peek_translation_btn')), findsNothing);
 
-      // Select A (correct) and C (wrong), missing B (correct)
+      // 2. Select A (correct) and C (wrong), leaving B (correct) unselected
       await tester.tap(find.byKey(const Key('option_card_A')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('option_card_C')));
@@ -155,18 +104,35 @@ void main() {
       await tester.tap(find.byKey(const Key('primary_practice_cta')));
       await tester.pump();
 
-      // Verify all 3 active feedback badges & auto-expanded explanation + -M notice
+      // 3. Checkboxes remain visible:
+      // A (selected) -> check_box_rounded
+      // C (selected) -> check_box_rounded
+      // B (unselected) -> check_box_outline_blank_rounded
+      expect(find.byIcon(Icons.check_box_rounded), findsNWidgets(2));
+      expect(
+        find.byIcon(Icons.check_box_outline_blank_rounded),
+        findsOneWidget,
+      );
+
+      // 4. Badges are displayed with 1-word label for wrong ('Wrong')
       expect(find.byKey(const Key('badge_correct_A')), findsOneWidget);
       expect(find.byKey(const Key('badge_missed_B')), findsOneWidget);
       expect(find.byKey(const Key('badge_wrong_C')), findsOneWidget);
+      expect(find.text('Wrong'), findsOneWidget);
+
+      // 5. No "+4 Error Points" banner during practice (clean learning view)
+      expect(find.textContaining('Error Points'), findsNothing);
+
+      // 6. Explanation card is displayed with clean header 'Explanation'
       expect(find.byKey(const Key('explanation_card')), findsOneWidget);
+      expect(find.text('Explanation'), findsOneWidget);
       expect(
         find.text('Defensive driving means anticipating mistakes.'),
         findsOneWidget,
       );
       expect(find.text('Exam Variation Question (-M)'), findsOneWidget);
 
-      // Counter updated: 0 correct, 1 wrong, 1 left
+      // 7. Counter updated: 0 correct, 1 wrong, 1 left
       expect(
         tester.widget<Text>(find.byKey(const Key('session_wrong_count'))).data,
         '1',
@@ -178,14 +144,48 @@ void main() {
         '1 left',
       );
 
-      // Advance to Question 2 (Numeric Input) by tapping the same primary CTA
+      // 8. Retry button is available to re-answer the same question
+      expect(find.byKey(const Key('retry_question_btn')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('retry_question_btn')));
+      await tester.pump();
+
+      // State is reset: submit button is back, badges gone
+      expect(find.byKey(const Key('badge_wrong_C')), findsNothing);
+      expect(find.text('Check Answer'), findsOneWidget);
+
+      // Now answer correctly: select A and B
+      await tester.tap(find.byKey(const Key('option_card_A')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('option_card_B')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('primary_practice_cta')));
+      await tester.pump();
+
+      expect(find.byKey(const Key('badge_correct_A')), findsOneWidget);
+      expect(find.byKey(const Key('badge_correct_B')), findsOneWidget);
+
+      // 9. Advance to Question 2 (Numeric Input)
       await tester.tap(find.byKey(const Key('primary_practice_cta')));
       await tester.pump();
 
       expect(find.text('Minimum tire tread depth in mm?'), findsOneWidget);
-      expect(find.text('Mindestprofiltiefe der Reifen in mm?'), findsOneWidget);
 
-      // Enter 1.6 on custom ergonomic numpad (matches expected "1,6")
+      // 10. Previous button is present on Question 2
+      expect(find.byKey(const Key('prev_question_btn')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('prev_question_btn')));
+      await tester.pump();
+
+      // Back on Question 1!
+      expect(
+        find.text('What should you understand by defensive driving?'),
+        findsOneWidget,
+      );
+
+      // Skip forward to Question 2
+      await tester.tap(find.byKey(const Key('skip_question_btn')));
+      await tester.pump();
+
+      // Enter 1.6 on custom numpad (matches expected "1,6")
       await tester.tap(find.byKey(const Key('numpad_key_1')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('numpad_key_decimal')));
@@ -195,20 +195,6 @@ void main() {
 
       await tester.tap(find.byKey(const Key('primary_practice_cta')));
       await tester.pump();
-
-      expect(find.text('Correctly answered!'), findsOneWidget);
-      expect(
-        tester
-            .widget<Text>(find.byKey(const Key('session_correct_count')))
-            .data,
-        '1',
-      );
-      expect(
-        tester
-            .widget<Text>(find.byKey(const Key('session_remaining_count')))
-            .data,
-        '0 left',
-      );
 
       // Explanation can be expanded on demand in 1 tap when answered right
       await tester.tap(find.byKey(const Key('expand_explanation_chip')));

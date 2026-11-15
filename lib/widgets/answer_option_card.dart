@@ -38,7 +38,6 @@ class AnswerOptionCard extends StatelessWidget {
     double opacity = 1.0;
     Widget leadingIcon;
     Widget? statusBadge;
-    bool strikeText = false;
 
     if (feedbackState == null) {
       if (isSelected) {
@@ -64,7 +63,7 @@ class AnswerOptionCard extends StatelessWidget {
           borderColor = semantic.correctBorder;
           borderWidth = 2.0;
           leadingIcon = Icon(
-            Icons.check_circle_rounded,
+            Icons.check_box_rounded,
             color: semantic.correctBorder,
             size: 24,
           );
@@ -78,9 +77,8 @@ class AnswerOptionCard extends StatelessWidget {
           bgColor = semantic.wrongSurface;
           borderColor = semantic.wrongBorder;
           borderWidth = 2.0;
-          strikeText = true;
           leadingIcon = Icon(
-            Icons.cancel_rounded,
+            Icons.check_box_rounded,
             color: semantic.wrongBorder,
             size: 24,
           );
@@ -96,7 +94,7 @@ class AnswerOptionCard extends StatelessWidget {
           borderWidth = 2.2;
           useDashedBorder = true;
           leadingIcon = Icon(
-            Icons.error_rounded,
+            Icons.check_box_outline_blank_rounded,
             color: semantic.missedBorder,
             size: 24,
           );
@@ -148,29 +146,26 @@ class AnswerOptionCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 if (option.imageAssetPath != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 76,
-                      height: 76,
-                      color: Colors.white,
-                      padding: const EdgeInsets.all(4),
-                      child: Image.asset(
-                        option.imageAssetPath!,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) =>
-                            const Icon(Icons.traffic_rounded, size: 36),
+                  GestureDetector(
+                    onTap: () =>
+                        showImageZoomLightbox(context, option.imageAssetPath!),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 76,
+                        height: 76,
+                        color: Colors.white,
+                        padding: const EdgeInsets.all(4),
+                        child: Image.asset(
+                          option.imageAssetPath!,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) =>
+                              const Icon(Icons.traffic_rounded, size: 36),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: strings.zoomImageTooltip,
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () =>
-                        showImageZoomLightbox(context, option.imageAssetPath!),
-                    icon: const Icon(Icons.zoom_in_rounded, size: 20),
-                  ),
                 ],
                 Expanded(
                   child: Column(
@@ -180,13 +175,10 @@ class AnswerOptionCard extends StatelessWidget {
                       if (option.text.isNotEmpty)
                         Text(
                           option.text,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 15.5,
                             height: 1.32,
                             fontWeight: FontWeight.w500,
-                            decoration: strikeText
-                                ? TextDecoration.lineThrough
-                                : null,
                           ),
                         ),
                       if (peekTranslationText != null &&

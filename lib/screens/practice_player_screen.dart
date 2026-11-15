@@ -34,7 +34,6 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
   String _numericValue = '';
   AnswerEvaluation? _evaluation;
   bool _manualExplanationOpen = false;
-  bool _peekTranslation = false;
   bool _sessionFinished = false;
 
   int _sessionCorrect = 0;
@@ -58,15 +57,6 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
   Question? get _currentQuestion {
     if (_queueIds.isEmpty || _currentIndex >= _queueIds.length) return null;
     return widget.controller.questionById(_queueIds[_currentIndex]);
-  }
-
-  Question? get _translatedQuestion {
-    final current = _currentQuestion;
-    if (current == null || !_peekTranslation) return null;
-    return widget.controller.questionById(
-      current.questionId,
-      inLanguage: widget.controller.language.opposite,
-    );
   }
 
   bool get _canSubmit {
@@ -137,6 +127,21 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
     }
     setState(() {
       _currentIndex++;
+      _resetQuestionState();
+    });
+  }
+
+  void _goToPrevious() {
+    if (_currentIndex > 0) {
+      setState(() {
+        _currentIndex--;
+        _resetQuestionState();
+      });
+    }
+  }
+
+  void _retryCurrentQuestion() {
+    setState(() {
       _resetQuestionState();
     });
   }
@@ -307,18 +312,6 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                 _PointsPill(points: q.points, label: s.pointsBadge(q.points)),
                 const SizedBox(width: 4),
                 IconButton(
-                  key: const Key('peek_translation_btn'),
-                  tooltip: s.peekTranslationLabel(
-                    widget.controller.language.opposite,
-                  ),
-                  onPressed: () =>
-                      setState(() => _peekTranslation = !_peekTranslation),
-                  icon: Icon(
-                    Icons.translate_rounded,
-                    color: _peekTranslation ? scheme.primary : null,
-                  ),
-                ),
-                IconButton(
                   key: const Key('bookmark_question_btn'),
                   tooltip: s.bookmarkTooltip,
                   onPressed: () =>
@@ -390,6 +383,24 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                       children: [
                         Row(
                           children: [
+                            if (_currentIndex > 0) ...[
+                              IconButton.outlined(
+                                key: const Key('prev_question_btn'),
+                                tooltip: s.prevQuestion,
+                                style: IconButton.styleFrom(
+                                  minimumSize: const Size(48, 52),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                onPressed: _goToPrevious,
+                                icon: const Icon(
+                                  Icons.arrow_back_rounded,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
                             if (_evaluation == null) ...[
                               OutlinedButton.icon(
                                 key: const Key('skip_question_btn'),
@@ -406,36 +417,57 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                                 ),
                                 label: Text(s.skipQuestion),
                               ),
-                              const SizedBox(width: 10),
-                            ],
-                            Expanded(
-                              child: FilledButton(
-                                key: const Key('primary_practice_cta'),
-                                onPressed: _evaluation == null
-                                    ? (_canSubmit ? _submitAnswer : null)
-                                    : _advanceToNext,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      _evaluation == null
-                                          ? s.checkAnswer
-                                          : (_currentIndex + 1 >=
-                                                    _queueIds.length
-                                                ? s.finishSession
-                                                : s.nextQuestion),
-                                    ),
-                                    if (_evaluation != null) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton(
+                                  key: const Key('primary_practice_cta'),
+                                  onPressed: _canSubmit ? _submitAnswer : null,
+                                  child: Text(s.checkAnswer),
+                                ),
+                              ),
+                            ] else ...[
+                              OutlinedButton.icon(
+                                key: const Key('retry_question_btn'),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 52),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                onPressed: _retryCurrentQuestion,
+                                icon: const Icon(
+                                  Icons.replay_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(s.retryQuestion),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton(
+                                  key: const Key('primary_practice_cta'),
+                                  onPressed: _advanceToNext,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          _currentIndex + 1 >= _queueIds.length
+                                              ? s.finishSession
+                                              : s.nextQuestion,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                       const SizedBox(width: 6),
                                       const Icon(
                                         Icons.arrow_forward_rounded,
                                         size: 20,
                                       ),
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                         if (isWide) ...[
@@ -469,7 +501,6 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
     final s = widget.controller.strings;
     final scheme = Theme.of(context).colorScheme;
     final semantic = SemanticColors.of(context);
-    final translated = _translatedQuestion;
     final eval = _evaluation;
 
     final showExplanationAutomatically = eval != null && !eval.isCorrect;
@@ -526,27 +557,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
             fontWeight: FontWeight.w800,
           ),
         ),
-        if (translated != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            translated.questionText,
-            style: TextStyle(
-              fontSize: 14.5,
-              fontStyle: FontStyle.italic,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
         const SizedBox(height: 16),
-        if (eval != null) ...[
-          _SubmissionOutcomeBanner(
-            isCorrect: eval.isCorrect,
-            text: eval.isCorrect
-                ? s.feedbackPerfect
-                : s.feedbackIncorrect(eval.errorPointsAwarded),
-          ),
-          const SizedBox(height: 12),
-        ],
         if (q.inputKind == QuestionInputKind.multipleChoice)
           for (var i = 0; i < q.options.length; i++) ...[
             if (i > 0) const SizedBox(height: 10),
@@ -555,10 +566,6 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
               isSelected: _selectedLetters.contains(q.options[i].letter),
               strings: s,
               feedbackState: eval?.optionStates[q.options[i].letter],
-              peekTranslationText:
-                  translated != null && i < translated.options.length
-                  ? translated.options[i].text
-                  : null,
               onTap: eval == null
                   ? () => _toggleOption(q.options[i].letter)
                   : null,
@@ -581,7 +588,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
               child: ActionChip(
                 key: const Key('expand_explanation_chip'),
                 avatar: const Icon(Icons.lightbulb_outline_rounded, size: 18),
-                label: Text(s.showExplanation),
+                label: Text(s.explanationTitle),
                 onPressed: () => setState(() => _manualExplanationOpen = true),
               ),
             )
@@ -619,18 +626,6 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                     q.comment,
                     style: const TextStyle(fontSize: 14.5, height: 1.45),
                   ),
-                  if (translated != null && translated.comment.isNotEmpty) ...[
-                    const Divider(height: 20),
-                    Text(
-                      translated.comment,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        height: 1.4,
-                        fontStyle: FontStyle.italic,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
                   if (q.isMotherVariant) ...[
                     const SizedBox(height: 12),
                     Container(
@@ -778,47 +773,6 @@ class _PointsPill extends StatelessWidget {
           fontWeight: FontWeight.w800,
           color: isFive ? semantic.missedText : scheme.onSurface,
         ),
-      ),
-    );
-  }
-}
-
-class _SubmissionOutcomeBanner extends StatelessWidget {
-  const _SubmissionOutcomeBanner({required this.isCorrect, required this.text});
-
-  final bool isCorrect;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final semantic = SemanticColors.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: isCorrect ? semantic.correctSurface : semantic.wrongSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isCorrect ? semantic.correctBorder : semantic.wrongBorder,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isCorrect ? Icons.check_circle_rounded : Icons.info_rounded,
-            color: isCorrect ? semantic.correctBorder : semantic.wrongBorder,
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: isCorrect ? semantic.correctText : semantic.wrongText,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
