@@ -66,7 +66,7 @@ CatalogRepository _buildProgressRepo() {
 
 void main() {
   testWidgets(
-    'ProgressScreen tracks coverage, ranks top 3 weak topics, links to mock exam history, and displays clear learning status buckets',
+    'ProgressScreen tracks coverage, ranks top 3 weak topics, links to mock exam history, and retries same exam from history',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(430, 1000);
       tester.view.devicePixelRatio = 1.0;
@@ -221,10 +221,19 @@ void main() {
       await tester.tap(find.byKey(const Key('past_exam_card_0')));
       await tester.pumpAndSettle();
       expect(find.text('PASSED! (BESTANDEN)'), findsOneWidget);
+      expect(find.byKey(const Key('verdict_new_exam_btn')), findsNothing);
+      expect(find.text('Mistakes Only (1)'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('practice_exam_mistakes_btn')));
+      // Tap Retry -> restarts the exact same exam and launches ExamPlayerScreen
+      await tester.tap(find.byKey(const Key('retry_exam_btn')));
       await tester.pumpAndSettle();
-      expect(lastPracticeRequest?.questionIds, ['1.3.01-001']);
+      expect(examLaunchedCount, 1);
+      expect(controller.activeExam, isNotNull);
+      expect(
+        controller.activeExam!.questionIds,
+        equals(['1.1.01-001', '1.3.01-001']),
+      );
+      expect(controller.activeExam!.submissions, isEmpty);
     },
   );
 }

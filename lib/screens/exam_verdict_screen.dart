@@ -6,21 +6,18 @@ import '../services/exam_engine.dart';
 import '../state/app_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/answer_option_card.dart';
-import 'home_screen.dart';
 
 class ExamVerdictScreen extends StatefulWidget {
   const ExamVerdictScreen({
     super.key,
     required this.controller,
     required this.result,
-    required this.onPracticeMistakes,
-    required this.onStartNewExam,
+    required this.onRetryExam,
   });
 
   final AppController controller;
   final ExamResultRecord result;
-  final ValueChanged<PracticeLaunchRequest> onPracticeMistakes;
-  final VoidCallback onStartNewExam;
+  final VoidCallback onRetryExam;
 
   @override
   State<ExamVerdictScreen> createState() => _ExamVerdictScreenState();
@@ -70,15 +67,6 @@ class _ExamVerdictScreenState extends State<ExamVerdictScreen> {
               s.isDe ? 'Prüfungsergebnis' : 'Exam Result',
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-            actions: [
-              TextButton.icon(
-                key: const Key('verdict_new_exam_btn'),
-                onPressed: widget.onStartNewExam,
-                icon: const Icon(Icons.replay_rounded, size: 18),
-                label: Text(s.newExamButton),
-              ),
-              const SizedBox(width: 8),
-            ],
           ),
           body: Align(
             alignment: Alignment.topCenter,
@@ -195,22 +183,12 @@ class _ExamVerdictScreenState extends State<ExamVerdictScreen> {
                       ],
                     ),
                   ),
-                  if (res.wrongQuestionIds.isNotEmpty) ...[
+                  if (res.questionIds.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    FilledButton.icon(
-                      key: const Key('practice_exam_mistakes_btn'),
-                      onPressed: () {
-                        widget.onPracticeMistakes(
-                          PracticeLaunchRequest(
-                            title: s.drillMostMistakes,
-                            questionIds: res.wrongQuestionIds,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.bolt_rounded),
-                      label: Text(
-                        s.practiceExamMistakes(res.wrongQuestionIds.length),
-                      ),
+                    FilledButton(
+                      key: const Key('retry_exam_btn'),
+                      onPressed: widget.onRetryExam,
+                      child: Text(s.retryQuestion),
                     ),
                   ],
                   const SizedBox(height: 18),
@@ -273,27 +251,43 @@ class _ExamVerdictScreenState extends State<ExamVerdictScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      ChoiceChip(
-                        key: const Key('verdict_filter_wrong'),
-                        label: Text(
-                          '${s.reviewWrongOnly} (${res.wrongQuestionIds.length})',
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: InkWell(
+                      key: const Key('verdict_mistakes_only_toggle'),
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => setState(() => _wrongOnly = !_wrongOnly),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 4,
                         ),
-                        selected: _wrongOnly,
-                        onSelected: (_) => setState(() => _wrongOnly = true),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Checkbox(
+                              key: const Key('verdict_mistakes_only_checkbox'),
+                              value: _wrongOnly,
+                              onChanged: (val) =>
+                                  setState(() => _wrongOnly = val ?? false),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              s.mistakesOnlyCheckboxLabel(
+                                res.wrongQuestionIds.length,
+                              ),
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      ChoiceChip(
-                        key: const Key('verdict_filter_all'),
-                        label: Text(s.reviewAll30),
-                        selected: !_wrongOnly,
-                        onSelected: (_) => setState(() => _wrongOnly = false),
-                      ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   for (final qid in shownIds) ...[
                     _buildReviewItem(context, qid),
                     const SizedBox(height: 10),

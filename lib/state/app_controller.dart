@@ -310,6 +310,19 @@ class AppController extends ChangeNotifier {
     return session;
   }
 
+  Future<ActiveExamSession> retryExam(List<String> questionIds) async {
+    final now = _clockMs();
+    final session = ActiveExamSession(
+      sessionId: 'exam_$now',
+      questionIds: List<String>.from(questionIds),
+      startedAtMs: now,
+    );
+    _activeExam = session;
+    notifyListeners();
+    await _persist();
+    return session;
+  }
+
   Future<void> updateExamSubmission(
     String questionId,
     AnswerSubmission submission,

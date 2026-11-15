@@ -3,7 +3,6 @@ import 'package:driving_exam/l10n/app_language.dart';
 import 'package:driving_exam/models/answer_evaluation.dart';
 import 'package:driving_exam/models/question.dart';
 import 'package:driving_exam/screens/exam_player_screen.dart';
-import 'package:driving_exam/screens/home_screen.dart';
 import 'package:driving_exam/services/exam_engine.dart';
 import 'package:driving_exam/services/progress_storage.dart';
 import 'package:driving_exam/state/app_controller.dart';
@@ -75,7 +74,7 @@ CatalogRepository _buildExamTestRepo() {
 
 void main() {
   testWidgets(
-    'ExamPlayer enforces 2-phase video lock, grades 30 questions, shows PASSED verdict, and launches mistake practice in 1 tap',
+    'ExamPlayer enforces 2-phase video lock, grades 30 questions, filters via single Mistakes Only checkbox, and retries the exact same exam',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(430, 932);
       tester.view.devicePixelRatio = 1.0;
@@ -101,7 +100,6 @@ void main() {
         submissions: prefilledSubs,
       );
 
-      PracticeLaunchRequest? mistakesPracticeReq;
       final controller = AppController(
         catalog: repo,
         storage: InMemoryProgressStorage(),
@@ -114,7 +112,6 @@ void main() {
           home: ExamPlayerScreen(
             controller: controller,
             enableNativeVideo: false,
-            onPracticeMistakes: (req) => mistakesPracticeReq = req,
           ),
         ),
       );
@@ -159,16 +156,36 @@ void main() {
       await tester.tap(find.byKey(const Key('header_submit_exam_btn')));
       await tester.pumpAndSettle();
 
-      // Verdict screen shows PASSED with 3 / 10 Error Points and 1 mistake!
+      // Verdict screen shows PASSED with 3 / 10 Error Points, no "New Exam" button!
       expect(find.text('PASSED! (BESTANDEN)'), findsOneWidget);
       expect(find.text('3 / 10 Error Points (max 10 allowed)'), findsOneWidget);
-      expect(find.text('Detailed explanation for 2.7.01-010'), findsOneWidget);
+      expect(find.byKey(const Key('verdict_new_exam_btn')), findsNothing);
+      expect(find.text('New Exam'), findsNothing);
 
-      // 1 tap on "Practice These 1 Mistakes Now" launches Practice queue!
-      await tester.tap(find.byKey(const Key('practice_exam_mistakes_btn')));
+      // Single checkbox "Mistakes Only (1)" is checked by default, showing only Q30
+      expect(
+        find.byKey(const Key('verdict_mistakes_only_checkbox')),
+        findsOneWidget,
+      );
+      expect(find.text('Mistakes Only (1)'), findsOneWidget);
+      expect(find.text('Detailed explanation for 2.7.01-010'), findsOneWidget);
+      expect(find.text('Exam Basic Question 2'), findsNothing);
+
+      // Uncheck "Mistakes Only (1)" -> all 30 questions appear!
+      await tester.tap(find.byKey(const Key('verdict_mistakes_only_checkbox')));
       await tester.pumpAndSettle();
-      expect(mistakesPracticeReq, isNotNull);
-      expect(mistakesPracticeReq!.questionIds, ['2.7.01-010']);
+      expect(find.text('Exam Basic Question 1'), findsOneWidget);
+
+      // Tap "Retry" -> restarts the exact same 30-question exam from Q1 with empty answers!
+      expect(find.byKey(const Key('retry_exam_btn')), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('retry_exam_btn')));
+      await tester.pumpAndSettle();
+
+      expect(controller.activeExam, isNotNull);
+      expect(controller.activeExam!.questionIds, equals(allIds));
+      expect(controller.activeExam!.submissions, isEmpty);
+      expect(find.byKey(const Key('exam_question_counter')), findsOneWidget);
     },
   );
 }

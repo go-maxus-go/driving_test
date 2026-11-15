@@ -35,12 +35,12 @@ class MockExamHistoryScreen extends StatelessWidget {
         builder: (verdictContext) => ExamVerdictScreen(
           controller: controller,
           result: record,
-          onPracticeMistakes: (req) {
+          onRetryExam: () async {
+            await controller.retryExam(record.questionIds);
+            if (!verdictContext.mounted) return;
             Navigator.of(verdictContext).pop();
-            onStartPractice(req);
-          },
-          onStartNewExam: () {
-            Navigator.of(verdictContext).pop();
+            if (!context.mounted) return;
+            Navigator.of(context).pop();
             onStartExam();
           },
         ),
@@ -96,7 +96,9 @@ class MockExamHistoryScreen extends StatelessWidget {
                             const SizedBox(height: 20),
                             FilledButton.icon(
                               key: const Key('history_start_first_exam_btn'),
-                              onPressed: () {
+                              onPressed: () async {
+                                await controller.startNewExam();
+                                if (!context.mounted) return;
                                 Navigator.of(context).pop();
                                 onStartExam();
                               },

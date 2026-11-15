@@ -17,12 +17,12 @@ class ExamPlayerScreen extends StatefulWidget {
   const ExamPlayerScreen({
     super.key,
     required this.controller,
-    required this.onPracticeMistakes,
+    this.onPracticeMistakes,
     this.enableNativeVideo = true,
   });
 
   final AppController controller;
-  final ValueChanged<PracticeLaunchRequest> onPracticeMistakes;
+  final ValueChanged<PracticeLaunchRequest>? onPracticeMistakes;
   final bool enableNativeVideo;
 
   @override
@@ -163,12 +163,8 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
         builder: (verdictCtx) => ExamVerdictScreen(
           controller: widget.controller,
           result: result,
-          onPracticeMistakes: (req) {
-            Navigator.of(verdictCtx).pop();
-            widget.onPracticeMistakes(req);
-          },
-          onStartNewExam: () async {
-            await widget.controller.startNewExam();
+          onRetryExam: () async {
+            await widget.controller.retryExam(result.questionIds);
             if (!verdictCtx.mounted) return;
             Navigator.of(verdictCtx).pushReplacement(
               MaterialPageRoute<void>(
@@ -331,8 +327,6 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
 
         final semantic = SemanticColors.of(context);
 
-        // Official TÜV rule: video questions start in Phase 1 until user taps
-        // "Show Question & Answers" (which locks video to freeze-frame).
         final isVideoPhaseOne =
             q.mediaKind == QuestionMediaKind.video &&
             !exam.isVideoLocked(q.questionId);
