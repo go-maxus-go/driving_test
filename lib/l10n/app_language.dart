@@ -390,6 +390,23 @@ class AppStrings {
       isDe ? 'Fragen pro Durchgang' : 'Questions per session';
   String get settingsCustomBatchDialogHint =>
       isDe ? 'Anzahl (1–200)' : 'Number of questions (1–200)';
+  String get settingsOfflineHeader => isDe ? 'OFFLINE-MODUS' : 'OFFLINE ACCESS';
+  String get settingsMakeAvailableOffline =>
+      isDe ? 'Offline verfügbar machen' : 'Make available offline';
+  String get settingsAvailableOffline =>
+      isDe ? 'Offline verfügbar' : 'Available offline';
+  String settingsOfflineSubtitle(int cached, int total) => isDe
+      ? '$cached von $total Bildern & Videos geladen'
+      : '$cached of $total images & videos downloaded';
+  String settingsOfflineDownloading(int cached, int total) => isDe
+      ? 'Wird heruntergeladen ($cached / $total)...'
+      : 'Downloading ($cached / $total)...';
+  String settingsOfflineAllDownloaded(int total) => isDe
+      ? 'Alle $total Bilder und Videos sind offline gespeichert'
+      : 'All $total images and videos are saved offline';
+  String get settingsOfflineError => isDe
+      ? 'Einige Dateien konnten nicht geladen werden. Tippe zum Wiederholen.'
+      : 'Some files could not be downloaded. Tap to retry.';
   String get settingsThemeHeader => isDe ? 'ERSCHEINUNGSBILD' : 'APPEARANCE';
   String get settingsDarkMode => isDe ? 'Dunkelmodus' : 'Dark Mode';
   String get settingsResetHeader => isDe ? 'DATEN' : 'DATA';

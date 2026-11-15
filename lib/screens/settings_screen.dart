@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../l10n/app_language.dart';
+import '../services/media_cache_service.dart';
 import '../services/smart_queue_builder.dart';
 import '../state/app_controller.dart';
 import '../theme/app_theme.dart';
@@ -41,6 +42,7 @@ class SettingsScreen extends StatelessWidget {
         final semantic = SemanticColors.of(context);
         final currentBatchSize = controller.practiceBatchSize;
         final isCustomBatchSize = !presetBatchSizes.contains(currentBatchSize);
+        final mediaCache = controller.mediaCache;
 
         return Scaffold(
           appBar: AppBar(
@@ -179,6 +181,10 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  _SectionHeader(title: s.settingsOfflineHeader),
+                  const SizedBox(height: 8),
+                  _OfflineAccessCard(mediaCache: mediaCache, strings: s),
+                  const SizedBox(height: 24),
                   _SectionHeader(title: s.settingsThemeHeader),
                   const SizedBox(height: 8),
                   Card(
@@ -261,6 +267,113 @@ class SettingsScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _OfflineAccessCard extends StatelessWidget {
+  const _OfflineAccessCard({required this.mediaCache, required this.strings});
+
+  final MediaCacheService mediaCache;
+  final AppStrings strings;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final semantic = SemanticColors.of(context);
+    final cached = mediaCache.cachedMediaCount;
+    final total = mediaCache.totalMediaCount;
+
+    if (mediaCache.isFullyCached) {
+      return Card(
+        key: const Key('settings_offline_card'),
+        child: ListTile(
+          key: const Key('settings_offline_complete_tile'),
+          leading: Icon(
+            Icons.offline_pin_rounded,
+            color: semantic.correctBorder,
+          ),
+          title: Text(
+            strings.settingsAvailableOffline,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: Text(strings.settingsOfflineAllDownloaded(total)),
+        ),
+      );
+    }
+
+    if (mediaCache.isDownloadingAllOffline) {
+      return Card(
+        key: const Key('settings_offline_card'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: scheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      strings.settingsOfflineDownloading(cached, total),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15.5,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    key: const Key('settings_cancel_offline_btn'),
+                    onPressed: mediaCache.cancelDownloadAllOffline,
+                    child: Text(strings.cancelAction),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  key: const Key('settings_offline_progress_bar'),
+                  value: mediaCache.offlineProgress,
+                  minHeight: 8,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final hasError = mediaCache.offlineDownloadError != null;
+    return Card(
+      key: const Key('settings_offline_card'),
+      child: ListTile(
+        key: const Key('settings_make_offline_tile'),
+        leading: Icon(
+          Icons.download_for_offline_outlined,
+          color: hasError ? semantic.wrongBorder : scheme.primary,
+        ),
+        title: Text(
+          strings.settingsMakeAvailableOffline,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          hasError
+              ? strings.settingsOfflineError
+              : strings.settingsOfflineSubtitle(cached, total),
+          style: hasError ? TextStyle(color: semantic.wrongBorder) : null,
+        ),
+        trailing: const Icon(Icons.download_rounded),
+        onTap: total > 0 ? () => mediaCache.startDownloadAllOffline() : null,
+      ),
     );
   }
 }
