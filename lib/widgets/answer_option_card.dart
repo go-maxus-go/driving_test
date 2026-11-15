@@ -155,7 +155,7 @@ class AnswerOptionCard extends StatelessWidget {
                       height: 76,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(color: semantic.subtleBorder),
                       ),
                       padding: const EdgeInsets.all(4),

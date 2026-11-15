@@ -401,16 +401,20 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                               const SizedBox(width: 8),
                             ],
                             if (_evaluation == null) ...[
-                              OutlinedButton(
+                              IconButton.outlined(
                                 key: const Key('skip_question_btn'),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 52),
+                                tooltip: s.skipQuestion,
+                                style: IconButton.styleFrom(
+                                  minimumSize: const Size(48, 52),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
                                 onPressed: _skipCurrentQuestion,
-                                child: Text(s.skipQuestion),
+                                icon: const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 20,
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -421,16 +425,20 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                                 ),
                               ),
                             ] else ...[
-                              OutlinedButton(
+                              IconButton.outlined(
                                 key: const Key('retry_question_btn'),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size(0, 52),
+                                tooltip: s.retryQuestion,
+                                style: IconButton.styleFrom(
+                                  minimumSize: const Size(48, 52),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
                                 onPressed: _retryCurrentQuestion,
-                                child: Text(s.retryQuestion),
+                                icon: const Icon(
+                                  Icons.replay_rounded,
+                                  size: 20,
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(

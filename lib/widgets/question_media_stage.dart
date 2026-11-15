@@ -26,6 +26,13 @@ Matrix4 computeDoubleTapZoomMatrix({
     ..setTranslationRaw(dx, dy, 0.0);
 }
 
+bool isVideoStoppedAtEnd(VideoPlayerValue value) {
+  if (!value.isInitialized || value.isPlaying) return false;
+  if (value.isCompleted) return true;
+  return value.duration > Duration.zero &&
+      value.position >= value.duration - const Duration(milliseconds: 150);
+}
+
 class QuestionMediaStage extends StatefulWidget {
   const QuestionMediaStage({
     super.key,
@@ -39,6 +46,7 @@ class QuestionMediaStage extends StatefulWidget {
     this.onExamVideoPlayStarted,
     this.onRevealExamQuestion,
     this.enableNativeVideo = true,
+    this.videoControllerBuilder,
   });
 
   final Question question;
@@ -51,6 +59,8 @@ class QuestionMediaStage extends StatefulWidget {
   final VoidCallback? onExamVideoPlayStarted;
   final VoidCallback? onRevealExamQuestion;
   final bool enableNativeVideo;
+  final VideoPlayerController Function(String assetPath)?
+  videoControllerBuilder;
 
   @override
   State<QuestionMediaStage> createState() => _QuestionMediaStageState();
@@ -78,16 +88,25 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     }
   }
 
+  void _onVideoControllerUpdate() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   void _setupMedia() {
     if (widget.question.mediaKind != QuestionMediaKind.video ||
         widget.isVideoLockedToFreezeFrame ||
-        !widget.enableNativeVideo) {
+        (!widget.enableNativeVideo && widget.videoControllerBuilder == null)) {
       return;
     }
     final assetPath = widget.question.videoAssetPath;
     if (assetPath == null || assetPath.isEmpty) return;
 
-    final controller = VideoPlayerController.asset(assetPath);
+    final controller =
+        widget.videoControllerBuilder?.call(assetPath) ??
+        VideoPlayerController.asset(assetPath);
+    controller.addListener(_onVideoControllerUpdate);
     _videoController = controller;
 
     unawaited(
@@ -121,6 +140,7 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     _videoReady = false;
     _videoError = false;
     if (old != null) {
+      old.removeListener(_onVideoControllerUpdate);
       unawaited(old.dispose());
     }
   }
@@ -131,14 +151,24 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     super.dispose();
   }
 
+  bool get _canReplay =>
+      !widget.isExamVideoPhaseOne || widget.examPlaysRemaining > 0;
+
   Future<void> _replayClip() async {
-    if (widget.isExamVideoPhaseOne && widget.examPlaysRemaining <= 0) return;
+    if (!_canReplay) return;
     widget.onExamVideoPlayStarted?.call();
     final ctrl = _videoController;
     if (ctrl != null && _videoReady) {
       await ctrl.seekTo(Duration.zero);
       await ctrl.play();
       if (mounted) setState(() {});
+    }
+  }
+
+  void _handleVideoSurfaceTap() {
+    final ctrl = _videoController;
+    if (ctrl != null && _videoReady && isVideoStoppedAtEnd(ctrl.value)) {
+      unawaited(_replayClip());
     }
   }
 
@@ -153,27 +183,43 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Center(
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: ctrl != null && _videoReady
-                      ? VideoPlayer(ctrl)
-                      : (img != null
-                            ? Image.asset(img, fit: BoxFit.contain)
-                            : const Center(
-                                child: Icon(
-                                  Icons.videocam_outlined,
-                                  color: Colors.white54,
-                                  size: 48,
-                                ),
-                              )),
+              GestureDetector(
+                key: const Key('fullscreen_video_tap_area'),
+                behavior: HitTestBehavior.opaque,
+                onTap: _handleVideoSurfaceTap,
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: ctrl != null && _videoReady
+                        ? VideoPlayer(ctrl)
+                        : (img != null
+                              ? Image.asset(img, fit: BoxFit.contain)
+                              : const Center(
+                                  child: Icon(
+                                    Icons.videocam_outlined,
+                                    color: Colors.white54,
+                                    size: 48,
+                                  ),
+                                )),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                left: 16,
+                child: _SubtleFullscreenIconButton(
+                  buttonKey: const Key('replay_fullscreen_video_btn'),
+                  icon: Icons.replay_rounded,
+                  tooltip: widget.strings.replayVideo,
+                  onPressed: _canReplay ? _replayClip : null,
                 ),
               ),
               Positioned(
                 top: 16,
                 right: 16,
-                child: _SubtleFullscreenCloseButton(
+                child: _SubtleFullscreenIconButton(
                   buttonKey: const Key('close_fullscreen_video_btn'),
+                  icon: Icons.close_rounded,
                   onPressed: () => Navigator.of(ctx).pop(),
                 ),
               ),
@@ -203,14 +249,23 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
       );
     }
 
-    // Video media stage
+    final semantic = SemanticColors.of(context);
+
+    // Video media stage (sharp square-cornered surface)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+        GestureDetector(
+          key: const Key('question_video_tap_area'),
+          behavior: HitTestBehavior.opaque,
+          onTap: _handleVideoSurfaceTap,
           child: Container(
-            color: Colors.black,
+            key: const Key('question_video_surface'),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.zero,
+              border: Border.all(color: semantic.subtleBorder),
+            ),
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: Stack(
@@ -267,10 +322,7 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
                           horizontal: 8,
                           vertical: 4,
                         ),
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
+                        decoration: const BoxDecoration(color: Colors.black54),
                         child: const Text(
                           'Preview Frame',
                           style: TextStyle(color: Colors.white70, fontSize: 11),
@@ -295,7 +347,7 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
               const Spacer(),
               IconButton.filledTonal(
                 key: const Key('video_fullscreen_btn'),
-                tooltip: 'Full Screen',
+                tooltip: widget.strings.fullScreenVideo,
                 icon: const Icon(Icons.fullscreen_rounded),
                 onPressed: () => _openFullscreenVideo(context),
               ),
@@ -359,17 +411,31 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    key: const Key('exam_watch_video_again_btn'),
-                    onPressed: widget.examPlaysRemaining > 0
-                        ? _replayClip
-                        : null,
-                    icon: const Icon(Icons.replay_rounded),
-                    label: Text(
-                      widget.strings.watchAgainButton(
-                        widget.examPlaysRemaining,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          key: const Key('exam_watch_video_again_btn'),
+                          onPressed: widget.examPlaysRemaining > 0
+                              ? _replayClip
+                              : null,
+                          icon: const Icon(Icons.replay_rounded),
+                          label: Text(
+                            widget.strings.watchAgainButton(
+                              widget.examPlaysRemaining,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      IconButton.filledTonal(
+                        key: const Key('video_fullscreen_btn'),
+                        tooltip: widget.strings.fullScreenVideo,
+                        icon: const Icon(Icons.fullscreen_rounded),
+                        onPressed: () => _openFullscreenVideo(context),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -412,91 +478,94 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
         width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.zero,
           border: Border.all(color: semantic.subtleBorder),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(13),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image.asset(
-                  imageAssetPath,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const Center(
-                    child: Icon(
-                      Icons.image_outlined,
-                      color: Colors.black38,
-                      size: 40,
-                    ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Image.asset(
+                imageAssetPath,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => const Center(
+                  child: Icon(
+                    Icons.image_outlined,
+                    color: Colors.black38,
+                    size: 40,
                   ),
                 ),
               ),
-              if (isFreezeFrame)
-                Positioned(
-                  left: 10,
-                  top: 10,
-                  child: Container(
-                    key: const Key('freeze_frame_badge'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.lock_outline_rounded,
-                          size: 14,
+            ),
+            if (isFreezeFrame)
+              Positioned(
+                left: 10,
+                top: 10,
+                child: Container(
+                  key: const Key('freeze_frame_badge'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.lock_outline_rounded,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        strings.freezeFrameBadge,
+                        style: const TextStyle(
                           color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
-                        const SizedBox(width: 5),
-                        Text(
-                          strings.freezeFrameBadge,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _SubtleFullscreenCloseButton extends StatelessWidget {
-  const _SubtleFullscreenCloseButton({
+class _SubtleFullscreenIconButton extends StatelessWidget {
+  const _SubtleFullscreenIconButton({
     required this.buttonKey,
+    required this.icon,
     required this.onPressed,
+    this.tooltip,
   });
 
   final Key buttonKey;
-  final VoidCallback onPressed;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
     return IconButton.outlined(
       key: buttonKey,
+      tooltip: tooltip,
       onPressed: onPressed,
       style: IconButton.styleFrom(
         foregroundColor: Colors.white70,
+        disabledForegroundColor: Colors.white30,
         backgroundColor: Colors.black.withValues(alpha: 0.35),
         side: const BorderSide(color: Colors.white38, width: 1.0),
       ),
-      icon: const Icon(Icons.close_rounded, size: 20),
+      icon: Icon(icon, size: 20),
     );
   }
 }
@@ -550,22 +619,19 @@ void showImageZoomLightbox(BuildContext context, String imageAssetPath) {
                         child: Center(
                           child: Container(
                             key: const Key('lightbox_image_surface'),
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.zero,
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.asset(
-                                imageAssetPath,
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, _, _) => const Padding(
-                                  padding: EdgeInsets.all(24),
-                                  child: Icon(
-                                    Icons.broken_image_outlined,
-                                    color: Colors.black45,
-                                    size: 48,
-                                  ),
+                            child: Image.asset(
+                              imageAssetPath,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const Padding(
+                                padding: EdgeInsets.all(24),
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color: Colors.black45,
+                                  size: 48,
                                 ),
                               ),
                             ),
@@ -577,8 +643,9 @@ void showImageZoomLightbox(BuildContext context, String imageAssetPath) {
                   Positioned(
                     top: 16,
                     right: 16,
-                    child: _SubtleFullscreenCloseButton(
+                    child: _SubtleFullscreenIconButton(
                       buttonKey: const Key('close_lightbox_btn'),
+                      icon: Icons.close_rounded,
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ),

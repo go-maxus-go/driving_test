@@ -4,6 +4,48 @@ import 'package:driving_exam/theme/app_theme.dart';
 import 'package:driving_exam/widgets/question_media_stage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:video_player/video_player.dart';
+
+class _FakeVideoPlayerController extends VideoPlayerController {
+  _FakeVideoPlayerController() : super.asset('assets/videos/sample.mp4');
+
+  int playCalls = 0;
+  int seekZeroCalls = 0;
+
+  @override
+  Future<void> initialize() async {
+    value = const VideoPlayerValue(
+      duration: Duration(seconds: 10),
+      size: Size(1280, 720),
+      isInitialized: true,
+    );
+  }
+
+  @override
+  Future<void> setVolume(double volume) async {}
+
+  @override
+  Future<void> play() async {
+    playCalls++;
+    value = value.copyWith(isPlaying: true, isCompleted: false);
+  }
+
+  @override
+  Future<void> seekTo(Duration position) async {
+    if (position == Duration.zero) {
+      seekZeroCalls++;
+    }
+    value = value.copyWith(position: position, isCompleted: false);
+  }
+
+  void simulateEnded() {
+    value = value.copyWith(
+      position: const Duration(seconds: 10),
+      isPlaying: false,
+      isCompleted: true,
+    );
+  }
+}
 
 void main() {
   test(
@@ -19,14 +61,13 @@ void main() {
       expect(matrix.getMaxScaleOnAxis(), closeTo(2.0, 1e-6));
       final tx = matrix.getTranslation().x;
       final ty = matrix.getTranslation().y;
-      // Transformed point = scale * tapped + translation == viewport center (200, 400)
       expect(2.0 * tapped.dx + tx, closeTo(viewport.width / 2, 1e-6));
       expect(2.0 * tapped.dy + ty, closeTo(viewport.height / 2, 1e-6));
     },
   );
 
   testWidgets(
-    'QuestionMediaStage renders signs on white surface, centers double-tap zoom, and keeps fullscreen video unrotated',
+    'QuestionMediaStage uses square cards, replays video on tap when stopped at end, and renders top-left fullscreen replay button',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(412, 915);
       tester.view.devicePixelRatio = 1.0;
@@ -68,7 +109,7 @@ void main() {
 
       final strings = AppStrings(AppLanguage.en);
 
-      // 1. Image media stage: white background surface, no overlay zoom icon
+      // 1. Image media stage: white square-cornered surface, no overlay zoom icon
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light(),
@@ -84,6 +125,7 @@ void main() {
       );
       final inlineDeco = inlineSurface.decoration! as BoxDecoration;
       expect(inlineDeco.color, Colors.white);
+      expect(inlineDeco.borderRadius, BorderRadius.zero);
 
       // Tapping the image opens the full-screen zoom lightbox
       await tester.tap(find.byKey(const Key('question_image_tap_area')));
@@ -93,10 +135,9 @@ void main() {
       final lightboxSurface = tester.widget<Container>(
         find.byKey(const Key('lightbox_image_surface')),
       );
-      expect(
-        (lightboxSurface.decoration! as BoxDecoration).color,
-        Colors.white,
-      );
+      final lightboxDeco = lightboxSurface.decoration! as BoxDecoration;
+      expect(lightboxDeco.color, Colors.white);
+      expect(lightboxDeco.borderRadius, BorderRadius.zero);
 
       // Double tap at an off-center coordinate (280, 540) to zoom 2x centered there
       const tapTarget = Offset(280, 540);
@@ -125,7 +166,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('close_lightbox_btn')), findsNothing);
 
-      // 2. Video media stage: fullscreen opens without RotatedBox even in portrait
+      // 2. Video media stage: square-cornered surface, tap-to-replay when stopped at end,
+      //    and fullscreen top-left Replay button + top-right Close button
+      late _FakeVideoPlayerController fakeVideoCtrl;
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light(),
@@ -134,29 +177,74 @@ void main() {
               question: videoQuestion,
               strings: strings,
               enableNativeVideo: false,
+              videoControllerBuilder: (_) {
+                fakeVideoCtrl = _FakeVideoPlayerController();
+                return fakeVideoCtrl;
+              },
             ),
           ),
         ),
       );
+      await tester.pump();
 
-      expect(
-        find.byKey(const Key('practice_replay_video_btn')),
-        findsOneWidget,
+      final videoSurface = tester.widget<Container>(
+        find.byKey(const Key('question_video_surface')),
       );
-      expect(find.byKey(const Key('video_fullscreen_btn')), findsOneWidget);
+      final videoDeco = videoSurface.decoration! as BoxDecoration;
+      expect(videoDeco.borderRadius, BorderRadius.zero);
 
+      // Initial autoplay started once
+      expect(fakeVideoCtrl.playCalls, 1);
+      expect(fakeVideoCtrl.seekZeroCalls, 0);
+
+      // Tapping while video is STILL playing does NOT restart the clip
+      await tester.tap(find.byKey(const Key('question_video_tap_area')));
+      await tester.pump();
+      expect(fakeVideoCtrl.playCalls, 1);
+      expect(fakeVideoCtrl.seekZeroCalls, 0);
+
+      // Once video stops at the end, tapping on the video plays it again
+      fakeVideoCtrl.simulateEnded();
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('question_video_tap_area')));
+      await tester.pump();
+      expect(fakeVideoCtrl.seekZeroCalls, 1);
+      expect(fakeVideoCtrl.playCalls, 2);
+
+      // Open fullscreen video
       await tester.tap(find.byKey(const Key('video_fullscreen_btn')));
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const Key('close_fullscreen_video_btn')),
-        findsOneWidget,
-      );
+      // Verify top-left Replay button and top-right Close button
+      final replayFinder = find.byKey(const Key('replay_fullscreen_video_btn'));
+      final closeFinder = find.byKey(const Key('close_fullscreen_video_btn'));
+      expect(replayFinder, findsOneWidget);
+      expect(closeFinder, findsOneWidget);
       expect(find.byType(RotatedBox), findsNothing);
 
-      await tester.tap(find.byKey(const Key('close_fullscreen_video_btn')));
+      final replayTopLeft = tester.getTopLeft(replayFinder);
+      final closeTopRight = tester.getTopRight(closeFinder);
+      expect(replayTopLeft.dx, lessThan(80));
+      expect(closeTopRight.dx, greaterThan(330));
+      expect(replayTopLeft.dy, closeTo(closeTopRight.dy, 1.0));
+
+      // Tapping top-left Replay button replays the video immediately
+      await tester.tap(replayFinder);
+      await tester.pump();
+      expect(fakeVideoCtrl.seekZeroCalls, 2);
+      expect(fakeVideoCtrl.playCalls, 3);
+
+      // Tapping fullscreen video surface when ended also replays the video
+      fakeVideoCtrl.simulateEnded();
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('fullscreen_video_tap_area')));
+      await tester.pump();
+      expect(fakeVideoCtrl.seekZeroCalls, 3);
+      expect(fakeVideoCtrl.playCalls, 4);
+
+      await tester.tap(closeFinder);
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('close_fullscreen_video_btn')), findsNothing);
+      expect(closeFinder, findsNothing);
     },
   );
 }

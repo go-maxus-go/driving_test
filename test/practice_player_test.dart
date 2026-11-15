@@ -57,7 +57,7 @@ CatalogRepository _buildPlayerTestRepo() {
 
 void main() {
   testWidgets(
-    'PracticePlayer auto-expands explanation on right/wrong, removes -M notice, and keeps Skip/Retry label-only',
+    'PracticePlayer uses icon buttons for Skip (right arrow) & Retry, auto-expands explanation, and shows Continue practice / Back to Menu on completion',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(412, 915);
       tester.view.devicePixelRatio = 1.0;
@@ -77,6 +77,7 @@ void main() {
             request: const PracticeLaunchRequest(
               title: 'Practice',
               questionIds: ['1.1.01-001-M', '2.7.01-010'],
+              allowContinueSmartBatch: true,
             ),
           ),
         ),
@@ -91,9 +92,16 @@ void main() {
         '2 left',
       );
 
-      // Skip button is label-only (no forward/skip icon)
+      // Skip button is an icon button with right arrow (no text label)
       expect(find.byKey(const Key('skip_question_btn')), findsOneWidget);
-      expect(find.byIcon(Icons.skip_next_rounded), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('skip_question_btn')),
+          matching: find.byIcon(Icons.arrow_forward_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Skip'), findsNothing);
 
       // No -M badge clutter on header
       expect(find.text('-M'), findsNothing);
@@ -129,16 +137,24 @@ void main() {
       );
       expect(find.textContaining('Exam Variation Question'), findsNothing);
 
-      // Retry button is label-only (no replay icon)
+      // Retry button is an icon button (Icons.replay_rounded) with no 'Retry' text
       expect(find.byKey(const Key('retry_question_btn')), findsOneWidget);
-      expect(find.byIcon(Icons.replay_rounded), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('retry_question_btn')),
+          matching: find.byIcon(Icons.replay_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Retry'), findsNothing);
+
       await tester.tap(find.byKey(const Key('retry_question_btn')));
       await tester.pump();
 
       expect(find.byKey(const Key('badge_wrong_C')), findsNothing);
       expect(find.text('Check Answer'), findsOneWidget);
 
-      // Now answer correctly: select A and B -> Explanation is IMMEDIATELY expanded
+      // Now answer correctly: select A and B -> Explanation is IMMEDIATELY expanded, Retry is still an icon button
       await tester.tap(find.byKey(const Key('option_card_A')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('option_card_B')));
@@ -148,7 +164,14 @@ void main() {
 
       expect(find.byKey(const Key('badge_correct_A')), findsOneWidget);
       expect(find.byKey(const Key('badge_correct_B')), findsOneWidget);
-      expect(find.byKey(const Key('expand_explanation_chip')), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('retry_question_btn')),
+          matching: find.byIcon(Icons.replay_rounded),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Retry'), findsNothing);
       expect(find.byKey(const Key('explanation_card')), findsOneWidget);
       expect(
         find.text('Defensive driving means anticipating mistakes.'),
@@ -172,7 +195,7 @@ void main() {
         findsOneWidget,
       );
 
-      // Skip forward to Question 2
+      // Skip forward via right-arrow icon button to Question 2
       await tester.tap(find.byKey(const Key('skip_question_btn')));
       await tester.pump();
 
@@ -188,8 +211,17 @@ void main() {
       await tester.pump();
 
       // Explanation is expanded immediately without needing an extra tap!
-      expect(find.byKey(const Key('expand_explanation_chip')), findsNothing);
       expect(find.text('Minimum legal tread depth is 1.6 mm.'), findsOneWidget);
+
+      // Finish session -> verify Continue practice & Back to Menu (never Cockpit)
+      await tester.tap(find.byKey(const Key('primary_practice_cta')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Session Complete!'), findsOneWidget);
+      expect(find.text('Continue practice'), findsOneWidget);
+      expect(find.text('Back to Menu'), findsOneWidget);
+      expect(find.textContaining('25'), findsNothing);
+      expect(find.textContaining('Cockpit'), findsNothing);
     },
   );
 }
