@@ -299,7 +299,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
             question: q,
             strings: s,
             mediaCache: widget.controller.mediaCache,
-            allowVideoScrubbing: _evaluation != null,
+            isAnswered: _evaluation != null,
             enableNativeVideo: widget.enableNativeVideo,
           );
 

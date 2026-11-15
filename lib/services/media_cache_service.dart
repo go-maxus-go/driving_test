@@ -275,6 +275,7 @@ class MediaCacheService extends ChangeNotifier {
       return existingDisk;
     }
 
+    _cachedPaths.remove(normalized);
     final ok = await ensureAvailable(normalized, highPriority: highPriority);
     if (!ok || _disposed) return null;
 
@@ -294,9 +295,14 @@ class MediaCacheService extends ChangeNotifier {
   }) async {
     final normalized = normalizeAssetPath(assetPath);
     if (normalized.isEmpty || _disposed) return null;
+    final remoteUrl = remoteUrlFor(normalized);
+    if (_cachedPaths.contains(normalized) &&
+        !await store.contains(normalized, remoteUrl)) {
+      _cachedPaths.remove(normalized);
+    }
     final ok = await ensureAvailable(normalized, highPriority: highPriority);
     if (!ok || _disposed) return null;
-    return store.createVideoController(normalized, remoteUrlFor(normalized));
+    return store.createVideoController(normalized, remoteUrl);
   }
 
   Future<void> startDownloadAllOffline() async {

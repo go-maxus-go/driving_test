@@ -22,6 +22,7 @@ class _FakeVideoPlayerController extends VideoPlayerController {
   _FakeVideoPlayerController() : super.asset('assets/videos/sample.mp4');
 
   int playCalls = 0;
+  int pauseCalls = 0;
   int seekZeroCalls = 0;
 
   @override
@@ -43,11 +44,25 @@ class _FakeVideoPlayerController extends VideoPlayerController {
   }
 
   @override
+  Future<void> pause() async {
+    pauseCalls++;
+    value = value.copyWith(isPlaying: false);
+  }
+
+  @override
   Future<void> seekTo(Duration position) async {
     if (position == Duration.zero) {
       seekZeroCalls++;
     }
     value = value.copyWith(position: position, isCompleted: false);
+  }
+
+  void simulateProgress(Duration position) {
+    value = value.copyWith(
+      position: position,
+      isPlaying: true,
+      isCompleted: false,
+    );
   }
 
   void simulateEnded() {
@@ -204,23 +219,24 @@ void main() {
       );
       final videoDeco = videoSurface.decoration! as BoxDecoration;
       expect(videoDeco.borderRadius, BorderRadius.zero);
+      expect(find.byType(VideoProgressIndicator), findsNothing);
 
-      // Initial autoplay started once
+      // Initial autoplay started once (after initial seekTo(Duration.zero))
       expect(fakeVideoCtrl.playCalls, 1);
-      expect(fakeVideoCtrl.seekZeroCalls, 0);
+      final baselineSeekZero = fakeVideoCtrl.seekZeroCalls;
 
       // Tapping while video is STILL playing does NOT restart the clip
       await tester.tap(find.byKey(const Key('question_video_tap_area')));
       await tester.pump();
       expect(fakeVideoCtrl.playCalls, 1);
-      expect(fakeVideoCtrl.seekZeroCalls, 0);
+      expect(fakeVideoCtrl.seekZeroCalls, baselineSeekZero);
 
       // Once video stops at the end, tapping on the video plays it again
       fakeVideoCtrl.simulateEnded();
       await tester.pump();
       await tester.tap(find.byKey(const Key('question_video_tap_area')));
       await tester.pump();
-      expect(fakeVideoCtrl.seekZeroCalls, 1);
+      expect(fakeVideoCtrl.seekZeroCalls, baselineSeekZero + 1);
       expect(fakeVideoCtrl.playCalls, 2);
 
       // Open fullscreen video
@@ -243,7 +259,7 @@ void main() {
       // Tapping top-left Replay button replays the video immediately
       await tester.tap(replayFinder);
       await tester.pump();
-      expect(fakeVideoCtrl.seekZeroCalls, 2);
+      expect(fakeVideoCtrl.seekZeroCalls, baselineSeekZero + 2);
       expect(fakeVideoCtrl.playCalls, 3);
 
       // Tapping fullscreen video surface when ended also replays the video
@@ -251,7 +267,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.byKey(const Key('fullscreen_video_tap_area')));
       await tester.pump();
-      expect(fakeVideoCtrl.seekZeroCalls, 3);
+      expect(fakeVideoCtrl.seekZeroCalls, baselineSeekZero + 3);
       expect(fakeVideoCtrl.playCalls, 4);
 
       await tester.tap(closeFinder);
@@ -420,6 +436,111 @@ void main() {
       expect(createdVideoCtrl, isNotNull);
       expect(createdVideoCtrl!.playCalls, 1);
       expect(cache.activeUrgentCount, 0);
+    },
+  );
+
+  testWidgets(
+    'Answering a video question stops at the first frame without progress bar, and reopening plays from cache without re-downloading',
+    (WidgetTester tester) async {
+      var videoFetchCount = 0;
+      final cache = MediaCacheService(
+        store: InMemoryMediaStore(),
+        fetcher: (uri) async {
+          if (uri.path.endsWith('cached_once.mp4')) {
+            videoFetchCount++;
+          }
+          return Uint8List.fromList([0, 0, 0, 24, 102, 116, 121, 112]);
+        },
+      );
+      addTearDown(cache.dispose);
+
+      final strings = AppStrings(AppLanguage.en);
+      final videoQuestion = Question.fromJson({
+        'theme_number': 'Theme 1.2.',
+        'theme_name': 'Behavior',
+        'chapter_number': '1.2.01 Chapter',
+        'chapter_name': 'Passing',
+        'question_id': '1.2.01-077',
+        'question_number': '1.2.01-077',
+        'points': '5 Points',
+        'licenses': ['B'],
+        'question_text': 'What should you expect?',
+        'options': <Map<String, dynamic>>[],
+        'correct_answers': <Map<String, dynamic>>[],
+        'comment': '',
+        'local_image_paths': <String>[],
+        'local_video_paths': ['assets/videos/cached_once.mp4'],
+      });
+      final textQuestion = Question.fromJson({
+        'theme_number': 'Theme 1.1.',
+        'theme_name': 'Rules',
+        'chapter_number': '1.1.01 Chapter',
+        'chapter_name': 'Basics',
+        'question_id': '1.1.01-001',
+        'question_number': '1.1.01-001',
+        'points': '2 Points',
+        'licenses': ['Basic material'],
+        'question_text': 'Text only question?',
+        'options': <Map<String, dynamic>>[],
+        'correct_answers': <Map<String, dynamic>>[],
+        'comment': '',
+        'local_image_paths': <String>[],
+        'local_video_paths': <String>[],
+      });
+
+      late _FakeVideoPlayerController activeCtrl;
+      Widget buildHost({required Question q, required bool isAnswered}) {
+        return MediaCacheScope(
+          cache: cache,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: QuestionMediaStage(
+                question: q,
+                strings: strings,
+                isAnswered: isAnswered,
+                enableNativeVideo: false,
+                videoControllerBuilder: (_) {
+                  activeCtrl = _FakeVideoPlayerController();
+                  return activeCtrl;
+                },
+              ),
+            ),
+          ),
+        );
+      }
+
+      // 1. Open video question first time -> downloads once and starts playing
+      await tester.pumpWidget(buildHost(q: videoQuestion, isAnswered: false));
+      await tester.pumpAndSettle();
+
+      expect(videoFetchCount, 1);
+      expect(activeCtrl.playCalls, 1);
+      expect(activeCtrl.value.isPlaying, isTrue);
+      expect(find.byType(VideoProgressIndicator), findsNothing);
+
+      // Simulate playback mid-stream, then answer the question
+      activeCtrl.simulateProgress(const Duration(seconds: 4));
+      await tester.pumpWidget(buildHost(q: videoQuestion, isAnswered: true));
+      await tester.pumpAndSettle();
+
+      // Video stops at the first frame (Duration.zero) and shows NO horizontal progress bar
+      expect(activeCtrl.pauseCalls, 1);
+      expect(activeCtrl.value.isPlaying, isFalse);
+      expect(activeCtrl.value.position, Duration.zero);
+      expect(find.byType(VideoProgressIndicator), findsNothing);
+
+      // 2. Navigate to another question and come back -> plays again WITHOUT re-downloading!
+      await tester.pumpWidget(buildHost(q: textQuestion, isAnswered: false));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(buildHost(q: videoQuestion, isAnswered: false));
+      await tester.pumpAndSettle();
+
+      expect(videoFetchCount, 1);
+      expect(activeCtrl.playCalls, 1);
+      expect(activeCtrl.value.isPlaying, isTrue);
+      expect(find.byType(VideoProgressIndicator), findsNothing);
     },
   );
 }

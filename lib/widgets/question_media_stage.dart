@@ -42,9 +42,9 @@ class QuestionMediaStage extends StatefulWidget {
     required this.question,
     required this.strings,
     this.mediaCache,
+    this.isAnswered = false,
     this.isExamVideoPhaseOne = false,
     this.isVideoLockedToFreezeFrame = false,
-    this.allowVideoScrubbing = false,
     this.examPlaysRemaining = 5,
     this.maxExamPlays = 5,
     this.onExamVideoPlayStarted,
@@ -56,9 +56,9 @@ class QuestionMediaStage extends StatefulWidget {
   final Question question;
   final AppStrings strings;
   final MediaCacheService? mediaCache;
+  final bool isAnswered;
   final bool isExamVideoPhaseOne;
   final bool isVideoLockedToFreezeFrame;
-  final bool allowVideoScrubbing;
   final int examPlaysRemaining;
   final int maxExamPlays;
   final VoidCallback? onExamVideoPlayStarted;
@@ -73,6 +73,7 @@ class QuestionMediaStage extends StatefulWidget {
 
 class _QuestionMediaStageState extends State<QuestionMediaStage> {
   VideoPlayerController? _videoController;
+  Future<void>? _pendingDispose;
   MediaCacheService? _lastCache;
   bool _didInitMedia = false;
   bool _videoLoading = false;
@@ -111,10 +112,27 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
       _lastCache = cache;
       _disposeVideo();
       _setupMedia(cache);
+      return;
+    }
+
+    if (!oldWidget.isAnswered && widget.isAnswered) {
+      unawaited(_stopAtFirstFrame());
+    } else if (oldWidget.isAnswered && !widget.isAnswered) {
+      unawaited(_replayClip());
     }
   }
 
   void _onVideoControllerUpdate() {
+    if (mounted) {
+      setState(_bumpRevision);
+    }
+  }
+
+  Future<void> _stopAtFirstFrame() async {
+    final ctrl = _videoController;
+    if (ctrl == null || !_videoReady) return;
+    await ctrl.pause();
+    await ctrl.seekTo(Duration.zero);
     if (mounted) {
       setState(_bumpRevision);
     }
@@ -139,7 +157,8 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     final assetPath = widget.question.videoAssetPath;
     if (assetPath == null || assetPath.isEmpty) return;
 
-    _videoLoading = true;
+    final alreadyCached = cache == null || cache.isCached(assetPath);
+    _videoLoading = !alreadyCached;
     _videoReady = false;
     _videoError = false;
     _bumpRevision();
@@ -153,6 +172,12 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     required int gen,
   }) async {
     try {
+      final previousDispose = _pendingDispose;
+      if (previousDispose != null) {
+        await previousDispose;
+      }
+      if (!mounted || gen != _setupGeneration) return;
+
       VideoPlayerController? controller;
       if (widget.videoControllerBuilder != null) {
         if (cache != null) {
@@ -205,6 +230,7 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
         return;
       }
       await controller.setVolume(0);
+      await controller.seekTo(Duration.zero);
       setState(() {
         _videoLoading = false;
         _videoReady = true;
@@ -212,7 +238,9 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
         _bumpRevision();
       });
 
-      if (!widget.isExamVideoPhaseOne || widget.examPlaysRemaining > 0) {
+      if (widget.isAnswered) {
+        await controller.pause();
+      } else if (!widget.isExamVideoPhaseOne || widget.examPlaysRemaining > 0) {
         widget.onExamVideoPlayStarted?.call();
         await controller.play();
       }
@@ -236,7 +264,17 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     _videoError = false;
     if (old != null) {
       old.removeListener(_onVideoControllerUpdate);
-      unawaited(old.dispose());
+      final prev = _pendingDispose;
+      _pendingDispose = () async {
+        if (prev != null) {
+          try {
+            await prev;
+          } catch (_) {}
+        }
+        try {
+          await old.dispose();
+        } catch (_) {}
+      }();
     }
   }
 
@@ -269,7 +307,10 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
 
   void _handleVideoSurfaceTap() {
     final ctrl = _videoController;
-    if (ctrl != null && _videoReady && isVideoStoppedAtEnd(ctrl.value)) {
+    if (ctrl != null &&
+        _videoReady &&
+        (isVideoStoppedAtEnd(ctrl.value) ||
+            (widget.isAnswered && !ctrl.value.isPlaying))) {
       unawaited(_replayClip());
     } else if (_videoError) {
       _setupMedia(_resolveCache(context));
@@ -385,7 +426,7 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
 
     final semantic = SemanticColors.of(context);
 
-    // Video media stage (sharp square-cornered surface)
+    // Video media stage (sharp square-cornered surface, no horizontal progress bar)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -433,26 +474,6 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
                         Icons.videocam_outlined,
                         color: Colors.white54,
                         size: 42,
-                      ),
-                    ),
-                  if (_videoReady &&
-                      _videoController != null &&
-                      widget.allowVideoScrubbing &&
-                      !widget.isExamVideoPhaseOne)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        color: Colors.black54,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        child: VideoProgressIndicator(
-                          _videoController!,
-                          allowScrubbing: true,
-                        ),
                       ),
                     ),
                   if (_videoError && q.primaryImageAsset != null)
