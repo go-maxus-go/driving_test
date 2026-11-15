@@ -19,7 +19,7 @@ class _DiskAssetBundle extends CachingAssetBundle {
 }
 
 void main() {
-  test('AppLanguage assetPaths exist on disk, match pubspec.yaml, and parse via CatalogRepository.loadFromAssets', () async {
+  test('AppLanguage JSON assetPaths exist on disk and match pubspec.yaml, while heavy images/videos are excluded from bundle', () async {
     final pubspecContent = File('pubspec.yaml').readAsStringSync();
 
     for (final lang in AppLanguage.values) {
@@ -35,6 +35,10 @@ void main() {
             'Asset ${lang.assetPath} is not registered in pubspec.yaml assets list',
       );
     }
+
+    // Heavy media directories must NOT be bundled into the app binary.
+    expect(pubspecContent.contains('- assets/images/'), isFalse);
+    expect(pubspecContent.contains('- assets/videos/'), isFalse);
 
     final repo = await CatalogRepository.loadFromAssets(
       bundle: _DiskAssetBundle(),

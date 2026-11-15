@@ -10,6 +10,8 @@ import '../models/answer_evaluation.dart';
 import '../models/question.dart';
 import '../models/user_progress.dart';
 import '../services/exam_engine.dart';
+import '../services/media_cache_service.dart';
+import '../services/media_store.dart';
 import '../services/progress_storage.dart';
 import '../services/smart_queue_builder.dart';
 
@@ -24,9 +26,13 @@ class AppController extends ChangeNotifier {
   AppController({
     required this.catalog,
     required ProgressStorage storage,
+    MediaCacheService? mediaCache,
     PersistedUserData? initialData,
     int Function()? clockMs,
   }) : _clockMs = clockMs ?? (() => DateTime.now().millisecondsSinceEpoch),
+       _ownsMediaCache = mediaCache == null,
+       mediaCache =
+           mediaCache ?? MediaCacheService(store: InMemoryMediaStore()),
        _language = initialData?.language ?? AppLanguage.en,
        _hasChosenLanguage = initialData?.hasChosenLanguage ?? false,
        _isDarkMode = initialData?.isDarkMode ?? false,
@@ -48,9 +54,17 @@ class AppController extends ChangeNotifier {
        ),
        _activeExam = initialData?.activeExam {
     _storage = storage;
+    if (this.mediaCache.totalMediaCount == 0) {
+      this.mediaCache.registerCatalogQuestions(
+        catalog.questionsFor(AppLanguage.en),
+      );
+    }
+    this.mediaCache.addListener(_onMediaCacheChanged);
   }
 
   final CatalogRepository catalog;
+  final MediaCacheService mediaCache;
+  final bool _ownsMediaCache;
   late final ProgressStorage _storage;
   final int Function() _clockMs;
 
@@ -63,14 +77,27 @@ class AppController extends ChangeNotifier {
   final Set<String> _starredThemeCodes;
   ActiveExamSession? _activeExam;
 
+  void _onMediaCacheChanged() {
+    notifyListeners();
+  }
+
   static Future<AppController> initialize({
     CatalogRepository? catalogRepository,
     ProgressStorage? storage,
+    MediaCacheService? mediaCache,
   }) async {
     final repo = catalogRepository ?? await CatalogRepository.loadFromAssets();
     final store = storage ?? SharedPreferencesProgressStorage();
     final persisted = await store.load();
-    return AppController(catalog: repo, storage: store, initialData: persisted);
+    final cache = mediaCache ?? MediaCacheService.production();
+    await cache.initializeWithQuestions(repo.questionsFor(AppLanguage.en));
+    final controller = AppController(
+      catalog: repo,
+      storage: store,
+      mediaCache: cache,
+      initialData: persisted,
+    );
+    return controller;
   }
 
   AppLanguage get language => _language;
@@ -502,5 +529,14 @@ class AppController extends ChangeNotifier {
         activeExam: _activeExam,
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    mediaCache.removeListener(_onMediaCacheChanged);
+    if (_ownsMediaCache) {
+      mediaCache.dispose();
+    }
+    super.dispose();
   }
 }
