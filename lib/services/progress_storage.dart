@@ -5,12 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_language.dart';
 import '../models/user_progress.dart';
 import 'exam_engine.dart';
+import 'smart_queue_builder.dart';
 
 class PersistedUserData {
   const PersistedUserData({
     this.language = AppLanguage.en,
     this.hasChosenLanguage = false,
     this.isDarkMode = false,
+    this.practiceBatchSize = SmartQueueBuilder.defaultSmartBatchSize,
     this.progressById = const <String, QuestionProgress>{},
     this.examHistory = const <ExamResultRecord>[],
     this.starredThemeCodes = const <String>{},
@@ -20,6 +22,7 @@ class PersistedUserData {
   final AppLanguage language;
   final bool hasChosenLanguage;
   final bool isDarkMode;
+  final int practiceBatchSize;
   final Map<String, QuestionProgress> progressById;
   final List<ExamResultRecord> examHistory;
   final Set<String> starredThemeCodes;
@@ -30,6 +33,7 @@ class PersistedUserData {
     'language': language.code,
     'hasChosenLanguage': hasChosenLanguage,
     'isDarkMode': isDarkMode,
+    'practiceBatchSize': practiceBatchSize,
     'starredThemeCodes': starredThemeCodes.toList(),
     'progress': [for (final p in progressById.values) p.toJson()],
     'examHistory': [for (final e in examHistory) e.toJson()],
@@ -53,11 +57,18 @@ class PersistedUserData {
 
     final rawActive = json['activeExam'] as Map<String, dynamic>?;
     final rawStarred = json['starredThemeCodes'] as List<dynamic>? ?? const [];
+    final rawBatchSize = json['practiceBatchSize'] as int?;
 
     return PersistedUserData(
       language: AppLanguage.fromCode(json['language'] as String?),
       hasChosenLanguage: json['hasChosenLanguage'] as bool? ?? false,
       isDarkMode: json['isDarkMode'] as bool? ?? false,
+      practiceBatchSize:
+          rawBatchSize?.clamp(
+            SmartQueueBuilder.minBatchSize,
+            SmartQueueBuilder.maxBatchSize,
+          ) ??
+          SmartQueueBuilder.defaultSmartBatchSize,
       progressById: progressMap,
       examHistory: exams,
       starredThemeCodes: rawStarred.map((e) => e.toString()).toSet(),

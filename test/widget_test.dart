@@ -11,7 +11,7 @@ import 'package:driving_exam/state/app_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
-CatalogRepository _sampleRepo() {
+CatalogRepository _sampleRepo({int count = 40}) {
   Question q(String id, String textEn, String textDe, int pts) =>
       Question.fromJson({
         'theme_number': 'Theme 1.1.',
@@ -35,14 +35,13 @@ CatalogRepository _sampleRepo() {
         'local_video_paths': <String>[],
       });
 
-  final en = [
-    q('1.1.01-001', 'English Q1', 'Deutsch F1', 5),
-    q('1.1.01-002', 'English Q2', 'Deutsch F2', 3),
-  ];
-  final de = [
-    q('1.1.01-001', 'Deutsch F1', 'Deutsch F1', 5),
-    q('1.1.01-002', 'Deutsch F2', 'Deutsch F2', 3),
-  ];
+  final en = <Question>[];
+  final de = <Question>[];
+  for (var i = 1; i <= count; i++) {
+    final id = '1.1.01-${i.toString().padLeft(3, '0')}';
+    en.add(q(id, 'English Q$i', 'Deutsch F$i', i == 1 ? 5 : 3));
+    de.add(q(id, 'Deutsch F$i', 'Deutsch F$i', i == 1 ? 5 : 3));
+  }
   return CatalogRepository.fromQuestions(
     englishQuestions: en,
     germanQuestions: de,
@@ -51,7 +50,7 @@ CatalogRepository _sampleRepo() {
 
 void main() {
   testWidgets(
-    'AppShell provides clean burger menu drawer navigation, Formulas screen, Settings screen, and About screen without bottom navigation bar',
+    'AppShell provides clean burger menu drawer navigation, Formulas screen, Settings screen with configurable batch size (default 30), and About screen without bottom navigation bar',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
@@ -59,7 +58,7 @@ void main() {
 
       PracticeLaunchRequest? launchedRequest;
       final controller = AppController(
-        catalog: _sampleRepo(),
+        catalog: _sampleRepo(count: 40),
         storage: InMemoryProgressStorage(),
       );
 
@@ -76,11 +75,11 @@ void main() {
       expect(find.byType(NavigationRail), findsNothing);
       expect(find.byKey(const Key('burger_menu_btn')), findsOneWidget);
 
-      // Tap Smart Practice launches batch
+      // Tap Smart Practice launches default 30-question batch (matching exam size)
       await tester.tap(find.byKey(const Key('smart_practice_cta')));
       await tester.pump();
       expect(launchedRequest, isNotNull);
-      expect(launchedRequest!.questionIds.length, 2);
+      expect(launchedRequest!.questionIds.length, 30);
 
       // Open burger menu drawer
       await tester.tap(find.byKey(const Key('burger_menu_btn')));
@@ -108,6 +107,24 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(controller.practiceBatchSize, 30);
+
+      // Select preset 15 batch size
+      await tester.tap(find.byKey(const Key('settings_batch_size_15')));
+      await tester.pump();
+      expect(controller.practiceBatchSize, 15);
+
+      // Select custom batch size (e.g. 22)
+      await tester.tap(find.byKey(const Key('settings_batch_size_custom')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('settings_custom_batch_input')),
+        '22',
+      );
+      await tester.tap(find.byKey(const Key('settings_custom_batch_save_btn')));
+      await tester.pumpAndSettle();
+      expect(controller.practiceBatchSize, 22);
+      expect(find.text('Custom (22)'), findsOneWidget);
 
       // Switch language to German in Settings
       await tester.tap(find.byKey(const Key('settings_lang_de')));
@@ -115,13 +132,19 @@ void main() {
       expect(controller.language, AppLanguage.de);
 
       // Toggle dark mode in Settings
+      await tester.ensureVisible(
+        find.byKey(const Key('settings_dark_mode_switch')),
+      );
       await tester.tap(find.byKey(const Key('settings_dark_mode_switch')));
       await tester.pump();
       expect(controller.isDarkMode, isTrue);
 
-      // Pop Settings
+      // Pop Settings and verify Practice launches configured 22-question batch
       await tester.pageBack();
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('smart_practice_cta')));
+      await tester.pump();
+      expect(launchedRequest!.questionIds.length, 22);
 
       // Open burger menu drawer again and open About Screen
       await tester.tap(find.byKey(const Key('burger_menu_btn')));

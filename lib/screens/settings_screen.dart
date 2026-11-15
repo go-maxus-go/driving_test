@@ -1,6 +1,8 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../l10n/app_language.dart';
+import '../services/smart_queue_builder.dart';
 import '../state/app_controller.dart';
 import '../theme/app_theme.dart';
 
@@ -8,6 +10,26 @@ class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.controller});
 
   final AppController controller;
+
+  static const List<int> presetBatchSizes = <int>[15, 30, 50, 100];
+
+  Future<void> _showCustomBatchSizeDialog(BuildContext context) async {
+    final result = await showDialog<int>(
+      context: context,
+      builder: (dlgContext) => _CustomBatchSizeDialog(
+        strings: controller.strings,
+        initialValue: controller.practiceBatchSize,
+      ),
+    );
+    if (result != null) {
+      await controller.setPracticeBatchSize(
+        result.clamp(
+          SmartQueueBuilder.minBatchSize,
+          SmartQueueBuilder.maxBatchSize,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +39,8 @@ class SettingsScreen extends StatelessWidget {
         final s = controller.strings;
         final scheme = Theme.of(context).colorScheme;
         final semantic = SemanticColors.of(context);
+        final currentBatchSize = controller.practiceBatchSize;
+        final isCustomBatchSize = !presetBatchSizes.contains(currentBatchSize);
 
         return Scaffold(
           appBar: AppBar(
@@ -71,6 +95,84 @@ class SettingsScreen extends StatelessWidget {
                               style: TextStyle(fontSize: 22),
                             ),
                             value: AppLanguage.de,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  _SectionHeader(title: s.settingsPracticeHeader),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.format_list_numbered_rounded,
+                                color: scheme.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      s.settingsBatchSizeTitle,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      s.settingsBatchSizeSubtitle,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: scheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final preset in presetBatchSizes)
+                                ChoiceChip(
+                                  key: Key('settings_batch_size_$preset'),
+                                  label: Text(
+                                    '$preset',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  selected: currentBatchSize == preset,
+                                  onSelected: (_) =>
+                                      controller.setPracticeBatchSize(preset),
+                                ),
+                              ChoiceChip(
+                                key: const Key('settings_batch_size_custom'),
+                                label: Text(
+                                  s.settingsCustomBatchSizeLabel(
+                                    isCustomBatchSize ? currentBatchSize : null,
+                                  ),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                selected: isCustomBatchSize,
+                                onSelected: (_) =>
+                                    _showCustomBatchSizeDialog(context),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -159,6 +261,75 @@ class SettingsScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _CustomBatchSizeDialog extends StatefulWidget {
+  const _CustomBatchSizeDialog({
+    required this.strings,
+    required this.initialValue,
+  });
+
+  final AppStrings strings;
+  final int initialValue;
+
+  @override
+  State<_CustomBatchSizeDialog> createState() => _CustomBatchSizeDialogState();
+}
+
+class _CustomBatchSizeDialogState extends State<_CustomBatchSizeDialog> {
+  late final TextEditingController _textController;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController(
+      text: widget.initialValue.toString(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final parsed = int.tryParse(_textController.text.trim());
+    if (parsed != null && parsed > 0) {
+      Navigator.of(context).pop(parsed);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.strings;
+    return AlertDialog(
+      title: Text(s.settingsCustomBatchDialogTitle),
+      content: TextField(
+        key: const Key('settings_custom_batch_input'),
+        controller: _textController,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: InputDecoration(
+          hintText: s.settingsCustomBatchDialogHint,
+          border: const OutlineInputBorder(),
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(s.cancelAction),
+        ),
+        FilledButton(
+          key: const Key('settings_custom_batch_save_btn'),
+          onPressed: _submit,
+          child: Text(s.saveAction),
+        ),
+      ],
     );
   }
 }

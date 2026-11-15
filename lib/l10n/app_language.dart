@@ -52,7 +52,7 @@ class AppStrings {
       isDe ? 'Deutsch (Optional)' : 'Deutsch (Optional)';
   String get welcomeContinue => isDe ? 'Weiter' : 'Continue';
 
-  // Home Cockpit
+  // Main Menu / Practice Screen
   String get examReadiness => isDe ? 'FORTSCHRITT' : 'PROGRESS';
   String readinessStatus(int percent) {
     if (percent >= 85) {
@@ -179,10 +179,10 @@ class AppStrings {
   String get sessionCompleteTitle =>
       isDe ? 'Durchgang abgeschlossen!' : 'Session Complete!';
   String get continueMoreQuestions =>
-      isDe ? 'Weitere 25 Fragen üben' : 'Practice 25 More';
+      isDe ? 'Weiter üben' : 'Continue practice';
   String get retrySessionMistakes =>
       isDe ? 'Fehler aus dieser Runde üben' : 'Retry Session Mistakes';
-  String get backToCockpit => isDe ? 'Zurück zur Übersicht' : 'Back to Cockpit';
+  String get backToMenu => isDe ? 'Zurück zum Menü' : 'Back to Menu';
 
   // Topics Screen
   String get topicsTitle => isDe ? 'Themen' : 'Topics';
@@ -342,6 +342,7 @@ class AppStrings {
   String get resetConfirmAction =>
       isDe ? 'Ja, alles löschen' : 'Yes, Reset Everything';
   String get cancelAction => isDe ? 'Abbrechen' : 'Cancel';
+  String get saveAction => isDe ? 'Speichern' : 'Save';
   String get progressResetSuccess => isDe
       ? 'Dein Fortschritt wurde erfolgreich zurückgesetzt.'
       : 'All study progress was successfully reset.';
@@ -375,6 +376,20 @@ class AppStrings {
   // Settings Screen
   String get settingsLanguageHeader =>
       isDe ? 'LERNERSPRACHE' : 'STUDY LANGUAGE';
+  String get settingsPracticeHeader =>
+      isDe ? 'ÜBUNGSRUNDE' : 'PRACTICE SESSION';
+  String get settingsBatchSizeTitle =>
+      isDe ? 'Fragen pro Durchgang' : 'Questions per session';
+  String get settingsBatchSizeSubtitle => isDe
+      ? 'Standard: 30 (wie in der echten Prüfung)'
+      : 'Default: 30 (matches real exam length)';
+  String settingsCustomBatchSizeLabel([int? customValue]) => isDe
+      ? (customValue != null ? 'Eigene ($customValue)' : 'Eigene...')
+      : (customValue != null ? 'Custom ($customValue)' : 'Custom...');
+  String get settingsCustomBatchDialogTitle =>
+      isDe ? 'Fragen pro Durchgang' : 'Questions per session';
+  String get settingsCustomBatchDialogHint =>
+      isDe ? 'Anzahl (1–200)' : 'Number of questions (1–200)';
   String get settingsThemeHeader => isDe ? 'ERSCHEINUNGSBILD' : 'APPEARANCE';
   String get settingsDarkMode => isDe ? 'Dunkelmodus' : 'Dark Mode';
   String get settingsResetHeader => isDe ? 'DATEN' : 'DATA';

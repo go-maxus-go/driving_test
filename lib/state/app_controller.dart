@@ -30,6 +30,13 @@ class AppController extends ChangeNotifier {
        _language = initialData?.language ?? AppLanguage.en,
        _hasChosenLanguage = initialData?.hasChosenLanguage ?? false,
        _isDarkMode = initialData?.isDarkMode ?? false,
+       _practiceBatchSize =
+           (initialData?.practiceBatchSize ??
+                   SmartQueueBuilder.defaultSmartBatchSize)
+               .clamp(
+                 SmartQueueBuilder.minBatchSize,
+                 SmartQueueBuilder.maxBatchSize,
+               ),
        _progressById = Map<String, QuestionProgress>.from(
          initialData?.progressById ?? const {},
        ),
@@ -50,6 +57,7 @@ class AppController extends ChangeNotifier {
   AppLanguage _language;
   bool _hasChosenLanguage;
   bool _isDarkMode;
+  int _practiceBatchSize;
   final Map<String, QuestionProgress> _progressById;
   final List<ExamResultRecord> _examHistory;
   final Set<String> _starredThemeCodes;
@@ -69,6 +77,7 @@ class AppController extends ChangeNotifier {
   AppStrings get strings => AppStrings(_language);
   bool get hasChosenLanguage => _hasChosenLanguage;
   bool get isDarkMode => _isDarkMode;
+  int get practiceBatchSize => _practiceBatchSize;
   ThemeMode get themeMode => _isDarkMode ? ThemeMode.dark : ThemeMode.light;
 
   Map<String, QuestionProgress> get progressById =>
@@ -138,7 +147,7 @@ class AppController extends ChangeNotifier {
     return (coverageComponent + examComponent).round().clamp(0, 100);
   }
 
-  // --- Language, First Launch & Theme Preferences ---
+  // --- Language, First Launch, Practice Size & Theme Preferences ---
 
   Future<void> setLanguage(AppLanguage newLanguage) async {
     if (_language == newLanguage) return;
@@ -156,6 +165,17 @@ class AppController extends ChangeNotifier {
 
   Future<void> toggleDarkMode() async {
     _isDarkMode = !_isDarkMode;
+    notifyListeners();
+    await _persist();
+  }
+
+  Future<void> setPracticeBatchSize(int size) async {
+    final clamped = size.clamp(
+      SmartQueueBuilder.minBatchSize,
+      SmartQueueBuilder.maxBatchSize,
+    );
+    if (_practiceBatchSize == clamped) return;
+    _practiceBatchSize = clamped;
     notifyListeners();
     await _persist();
   }
@@ -194,11 +214,11 @@ class AppController extends ChangeNotifier {
 
   // --- Smart Queue Builders & Counts ---
 
-  List<String> buildSmartPracticeQueue({int batchSize = 25, Random? random}) =>
+  List<String> buildSmartPracticeQueue({int? batchSize, Random? random}) =>
       SmartQueueBuilder.buildSmartPractice(
         allQuestions: currentQuestions,
         progressMap: _progressById,
-        batchSize: batchSize,
+        batchSize: batchSize ?? _practiceBatchSize,
         random: random,
       );
 
@@ -424,6 +444,7 @@ class AppController extends ChangeNotifier {
       language: _language,
       hasChosenLanguage: _hasChosenLanguage,
       isDarkMode: _isDarkMode,
+      practiceBatchSize: _practiceBatchSize,
       progressById: _progressById,
       examHistory: _examHistory,
       starredThemeCodes: _starredThemeCodes,
@@ -439,6 +460,7 @@ class AppController extends ChangeNotifier {
       _language = imported.language;
       _hasChosenLanguage = imported.hasChosenLanguage;
       _isDarkMode = imported.isDarkMode;
+      _practiceBatchSize = imported.practiceBatchSize;
       _progressById
         ..clear()
         ..addAll(imported.progressById);
@@ -473,6 +495,7 @@ class AppController extends ChangeNotifier {
         language: _language,
         hasChosenLanguage: _hasChosenLanguage,
         isDarkMode: _isDarkMode,
+        practiceBatchSize: _practiceBatchSize,
         progressById: Map<String, QuestionProgress>.from(_progressById),
         examHistory: List<ExamResultRecord>.from(_examHistory),
         starredThemeCodes: Set<String>.from(_starredThemeCodes),

@@ -6,6 +6,7 @@ import 'package:driving_exam/models/answer_evaluation.dart';
 import 'package:driving_exam/models/question.dart';
 import 'package:driving_exam/services/exam_engine.dart';
 import 'package:driving_exam/services/progress_storage.dart';
+import 'package:driving_exam/services/smart_queue_builder.dart';
 import 'package:driving_exam/state/app_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -81,6 +82,28 @@ CatalogRepository _buildSyntheticCatalog() {
 
 void main() {
   group('SmartQueueBuilder & AppController learning telemetry', () {
+    test(
+      'defaults Smart Practice batch size to 30 and persists custom batch size',
+      () async {
+        final storage = InMemoryProgressStorage();
+        final controller = AppController(
+          catalog: _buildSyntheticCatalog(),
+          storage: storage,
+        );
+
+        expect(SmartQueueBuilder.defaultSmartBatchSize, 30);
+        expect(controller.practiceBatchSize, 30);
+        expect(controller.buildSmartPracticeQueue().length, 30);
+
+        await controller.setPracticeBatchSize(15);
+        expect(controller.practiceBatchSize, 15);
+        expect(controller.buildSmartPracticeQueue().length, 15);
+
+        final reloaded = await storage.load();
+        expect(reloaded.practiceBatchSize, 15);
+      },
+    );
+
     test('tracks progress across language switches and orders Most Mistakes & Least Answered', () async {
       var now = 1000;
       final controller = AppController(
@@ -164,6 +187,7 @@ void main() {
         );
         await controller.toggleBookmark(q1.questionId);
         await controller.setLanguage(AppLanguage.de);
+        await controller.setPracticeBatchSize(50);
 
         final exported = controller.exportBackupJson();
 
@@ -174,6 +198,7 @@ void main() {
         final ok = await controller.importBackupJson(exported);
         expect(ok, isTrue);
         expect(controller.language, AppLanguage.de);
+        expect(controller.practiceBatchSize, 50);
         expect(controller.globalStats.correctQuestions, 1);
         expect(controller.isBookmarked(q1.questionId), isTrue);
       },

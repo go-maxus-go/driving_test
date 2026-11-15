@@ -18,9 +18,12 @@ enum PracticeFilterKind {
 class SmartQueueBuilder {
   const SmartQueueBuilder._();
 
-  static const int defaultSmartBatchSize = 25;
+  static const int defaultSmartBatchSize = 30;
+  static const int minBatchSize = 1;
+  static const int maxBatchSize = 200;
 
-  /// Builds an adaptive 25-question Smart Practice sprint:
+  /// Builds an adaptive Smart Practice sprint (defaulting to 30 questions to
+  /// match the official exam length):
   /// ~35% unrecovered/frequent mistakes, ~45% unseen/least-answered across
   /// diverse themes, and ~20% spaced review of earlier correct questions.
   static List<String> buildSmartPractice({
@@ -30,7 +33,8 @@ class SmartQueueBuilder {
     Random? random,
   }) {
     final rng = random ?? Random();
-    final target = min(batchSize, allQuestions.length);
+    final clampedBatch = batchSize.clamp(minBatchSize, maxBatchSize);
+    final target = min(clampedBatch, allQuestions.length);
     if (target == 0) return const [];
 
     final mistakes = buildMostMistakes(
@@ -75,7 +79,7 @@ class SmartQueueBuilder {
     final reviewQuota = max(0, target - mistakeQuota - unseenQuota);
 
     takeFrom(mistakes, mistakeQuota);
-    takeFrom(unseenOrLow, unseenQuota);
+    takeFrom(unseenQuota > 0 ? unseenOrLow : const [], unseenQuota);
     takeFrom(reviewCandidates.map((q) => q.questionId), reviewQuota);
 
     // Top up remaining slots from least-answered so we always deliver a full batch

@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../l10n/app_language.dart';
 import '../models/answer_evaluation.dart';
 import '../models/question.dart';
 import '../state/app_controller.dart';
@@ -684,7 +685,7 @@ class _SessionCompleteScreen extends StatelessWidget {
     required this.onClose,
   });
 
-  final dynamic strings;
+  final AppStrings strings;
   final int correctCount;
   final int wrongCount;
   final List<String> mistakeIds;
@@ -759,14 +760,16 @@ class _SessionCompleteScreen extends StatelessWidget {
                     ],
                     if (canContinueSmartBatch) ...[
                       FilledButton.tonal(
+                        key: const Key('continue_practice_btn'),
                         onPressed: onContinueSmartBatch,
                         child: Text(strings.continueMoreQuestions),
                       ),
                       const SizedBox(height: 10),
                     ],
                     OutlinedButton(
+                      key: const Key('back_to_menu_btn'),
                       onPressed: onClose,
-                      child: Text(strings.backToCockpit),
+                      child: Text(strings.backToMenu),
                     ),
                   ],
                 ),
