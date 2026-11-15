@@ -55,7 +55,7 @@ CatalogRepository _buildTopicsRepo() {
 
 void main() {
   testWidgets(
-    'TopicsScreen supports 1-tap theme start, chapter accordion, section filter, multi-select, and formulas modal',
+    'TopicsScreen supports 1-tap theme start, chapter accordion, and starring topics without clutter',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(430, 932);
       tester.view.devicePixelRatio = 1.0;
@@ -79,7 +79,12 @@ void main() {
         ),
       );
 
-      // All 3 themes visible
+      // No search bar, no filter chips, no multi-select
+      expect(find.byKey(const Key('topic_search_field')), findsNothing);
+      expect(find.byKey(const Key('filter_all_chip')), findsNothing);
+      expect(find.byKey(const Key('multi_select_topics_btn')), findsNothing);
+
+      // All 3 themes visible in list
       expect(find.text('1.1 • Danger Teaching'), findsOneWidget);
       expect(find.text('1.3 • Priority'), findsOneWidget);
       expect(find.text('2.7 • Technology'), findsOneWidget);
@@ -97,32 +102,19 @@ void main() {
       await tester.pump();
       expect(lastLaunch?.questionIds, ['1.1.01-001']);
 
-      // Filter Class B Add-on only -> hides 1.1 & 1.3, shows 2.7
-      await tester.tap(find.byKey(const Key('filter_classb_chip')));
+      // Star theme 2.7 -> controller registers it and 2.7 moves to the top
+      expect(controller.isThemeStarred('2.7'), isFalse);
+      await tester.tap(find.byKey(const Key('star_theme_2.7')));
       await tester.pump();
-      expect(find.text('1.3 • Priority'), findsNothing);
-      expect(find.text('2.7 • Technology'), findsOneWidget);
+      expect(controller.isThemeStarred('2.7'), isTrue);
 
-      // Back to All + Multi-select two themes
-      await tester.tap(find.byKey(const Key('filter_all_chip')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('multi_select_topics_btn')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('theme_card_1.3')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('theme_card_2.7')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('start_multi_topics_btn')));
-      await tester.pump();
-      expect(lastLaunch?.questionIds.toSet(), {'1.3.01-001', '2.7.01-001'});
-
-      // Open Formulas cheat-sheet modal
-      await tester.tap(find.byKey(const Key('open_formulas_btn')));
-      await tester.pumpAndSettle();
-      expect(
-        find.text('Essential German Driving Formulas & Limits'),
-        findsOneWidget,
-      );
+      final top27 = tester
+          .getTopLeft(find.byKey(const Key('theme_card_2.7')))
+          .dy;
+      final top11 = tester
+          .getTopLeft(find.byKey(const Key('theme_card_1.1')))
+          .dy;
+      expect(top27, lessThan(top11));
     },
   );
 }
