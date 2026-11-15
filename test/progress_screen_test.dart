@@ -3,6 +3,7 @@ import 'package:driving_exam/models/answer_evaluation.dart';
 import 'package:driving_exam/models/question.dart';
 import 'package:driving_exam/models/user_progress.dart';
 import 'package:driving_exam/screens/home_screen.dart';
+import 'package:driving_exam/screens/mock_exam_history_screen.dart';
 import 'package:driving_exam/screens/progress_screen.dart';
 import 'package:driving_exam/services/exam_engine.dart';
 import 'package:driving_exam/services/progress_storage.dart';
@@ -65,7 +66,7 @@ CatalogRepository _buildProgressRepo() {
 
 void main() {
   testWidgets(
-    'ProgressScreen tracks coverage, ranks weak topics, inspects past exams, drills exposure buckets, and exports/resets/imports JSON backup',
+    'ProgressScreen tracks coverage, ranks top 3 weak topics, links to mock exam history, and displays clear learning status buckets',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(430, 1000);
       tester.view.devicePixelRatio = 1.0;
@@ -100,7 +101,7 @@ void main() {
 
       final initialData = PersistedUserData(
         progressById: const {
-          // Mastered, 2+ attempts
+          // Mastered, 2+ consecutive correct
           '1.1.01-001': QuestionProgress(
             questionId: '1.1.01-001',
             attemptsCount: 2,
@@ -164,46 +165,29 @@ void main() {
         findsOneWidget,
       );
 
-      // 2. Weak topic 1.3 ranked with 100% error rate -> 1-tap Train
+      // 2. Top weak topics (up to 3)
       expect(
         find.textContaining('1.3  Priority & Right of Way'),
         findsOneWidget,
       );
       expect(find.text('100% error rate'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('train_weak_topic_1.3')));
+
+      await tester.tap(find.byKey(const Key('drill_weak_topic_1.3')));
       await tester.pump();
       expect(lastPracticeRequest?.questionIds.toSet(), {
         '1.3.01-001',
         '1.3.01-002',
       });
 
-      // 3. Past Mock Exam card -> tap opens ExamVerdictScreen -> 1-tap practice exam mistakes
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('exam_history_item_0')),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.byKey(const Key('exam_history_item_0')));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('exam_verdict_banner')), findsOneWidget);
+      // 3. Question Learning Status with clear explanation text
       expect(
-        find.text('Official rule explanation for 1.3.01-001.'),
+        find.text(
+          'A question is considered "Learned" once answered correctly 2 times in a row.',
+        ),
         findsOneWidget,
       );
 
-      await tester.tap(find.byKey(const Key('practice_exam_mistakes_btn')));
-      await tester.pumpAndSettle();
-      expect(lastPracticeRequest?.questionIds, ['1.3.01-001']);
-
-      // 4. Exposure distribution: 2x at 0 attempts, 1x at 1 attempt, 1x at 2+ attempts
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('exposure_row_1')),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.text('2 / 4'), findsOneWidget);
-
+      // Exposure drill: Unseen
       await tester.tap(find.byKey(const Key('exposure_drill_0')));
       await tester.pump();
       expect(lastPracticeRequest?.questionIds.toSet(), {
@@ -211,59 +195,36 @@ void main() {
         '2.7.01-001',
       });
 
+      // Exposure drill: In Training
       await tester.tap(find.byKey(const Key('exposure_drill_1')));
       await tester.pump();
       expect(lastPracticeRequest?.questionIds, ['1.3.01-001']);
 
-      // 5. Export JSON backup -> Reset All Progress -> Import JSON backup back!
-      final savedBackup = controller.exportBackupJson();
-      expect(savedBackup, contains('1.3.01-001'));
+      // 4. No backup/reset clutter on progress screen (moved to settings)
+      expect(find.byKey(const Key('open_backup_reset_btn')), findsNothing);
 
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, 600));
+      // 5. Separate Mock Exam History button opens MockExamHistoryScreen
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -600));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('open_backup_reset_btn')));
-      await tester.pumpAndSettle();
-
       expect(
-        find.byKey(const Key('exported_backup_json_preview')),
+        find.byKey(const Key('open_mock_exam_history_btn')),
         findsOneWidget,
       );
-
-      // Trigger Reset All Progress
-      await tester.tap(find.byKey(const Key('reset_all_progress_btn')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('confirm_reset_progress_btn')));
+      await tester.tap(find.byKey(const Key('open_mock_exam_history_btn')));
       await tester.pumpAndSettle();
 
-      expect(controller.globalStats.unseenQuestions, 4);
-      expect(controller.examHistory, isEmpty);
+      expect(find.byType(MockExamHistoryScreen), findsOneWidget);
+      expect(find.byKey(const Key('past_exam_card_0')), findsOneWidget);
+      expect(find.textContaining('8 / 10 Pts'), findsOneWidget);
 
-      // When no exams exist, starting first exam button works
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('progress_start_first_exam_btn')),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.byKey(const Key('progress_start_first_exam_btn')));
-      await tester.pump();
-      expect(examLaunchedCount, 1);
-
-      // Re-open Backup/Reset sheet and paste savedBackup JSON to restore!
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, 600));
+      // Tap past exam card to open review verdict
+      await tester.tap(find.byKey(const Key('past_exam_card_0')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('open_backup_reset_btn')));
-      await tester.pumpAndSettle();
+      expect(find.text('PASSED! (BESTANDEN)'), findsOneWidget);
 
-      await tester.enterText(
-        find.byKey(const Key('import_backup_json_input')),
-        savedBackup,
-      );
-      await tester.tap(find.byKey(const Key('confirm_import_backup_btn')));
+      await tester.tap(find.byKey(const Key('practice_exam_mistakes_btn')));
       await tester.pumpAndSettle();
-
-      expect(controller.globalStats.correctQuestions, 1);
-      expect(controller.globalStats.wrongQuestions, 1);
-      expect(controller.examHistory.length, 1);
+      expect(lastPracticeRequest?.questionIds, ['1.3.01-001']);
     },
   );
 }

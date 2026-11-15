@@ -1,13 +1,11 @@
-import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../models/user_progress.dart';
-import '../services/exam_engine.dart';
 import '../state/app_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/coverage_bar.dart';
-import 'exam_verdict_screen.dart';
 import 'home_screen.dart';
+import 'mock_exam_history_screen.dart';
 
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({
@@ -21,222 +19,24 @@ class ProgressScreen extends StatelessWidget {
   final ValueChanged<PracticeLaunchRequest> onStartPractice;
   final VoidCallback onStartExam;
 
-  void _openPastExamVerdict(BuildContext context, ExamResultRecord record) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (verdictContext) => ExamVerdictScreen(
-          controller: controller,
-          result: record,
-          onPracticeMistakes: (req) {
-            Navigator.of(verdictContext).pop();
-            onStartPractice(req);
-          },
-          onStartNewExam: () {
-            Navigator.of(verdictContext).pop();
-            onStartExam();
-          },
-        ),
-      ),
-    );
-  }
-
   void _launchExposureBucket({
     required BuildContext context,
     required String title,
     required List<String> questionIds,
   }) {
     if (questionIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(controller.strings.noQuestionsInDrill),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(controller.strings.noQuestionsInDrill),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       return;
     }
     onStartPractice(
       PracticeLaunchRequest(title: title, questionIds: questionIds),
-    );
-  }
-
-  Future<void> _showBackupAndResetSheet(BuildContext context) async {
-    final exportedJson = controller.exportBackupJson();
-    final importCtrl = TextEditingController();
-    String? importError;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (sheetContext, setSheetState) {
-            final s = controller.strings;
-            final scheme = Theme.of(sheetContext).colorScheme;
-            final semantic = SemanticColors.of(sheetContext);
-            final viewInsets = MediaQuery.of(sheetContext).viewInsets.bottom;
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(20, 4, 20, 24 + viewInsets),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      s.exportProgressTitle,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      constraints: const BoxConstraints(maxHeight: 110),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: scheme.surfaceContainerHighest.withValues(
-                          alpha: 0.55,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: scheme.outlineVariant),
-                      ),
-                      child: SingleChildScrollView(
-                        child: SelectableText(
-                          exportedJson,
-                          key: const Key('exported_backup_json_preview'),
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    FilledButton.tonalIcon(
-                      key: const Key('copy_backup_json_btn'),
-                      onPressed: () async {
-                        await Clipboard.setData(
-                          ClipboardData(text: exportedJson),
-                        );
-                        if (!sheetContext.mounted) return;
-                        Navigator.of(sheetContext).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              s.isDe
-                                  ? 'Backup-JSON in die Zwischenablage kopiert.'
-                                  : 'Backup JSON copied to clipboard.',
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.copy_rounded, size: 18),
-                      label: Text(s.copyToClipboard),
-                    ),
-                    const Divider(height: 28),
-                    Text(
-                      s.importProgressTitle,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      key: const Key('import_backup_json_input'),
-                      controller: importCtrl,
-                      minLines: 2,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: '{"version": 1, ...}',
-                        errorText: importError,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        isDense: true,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    FilledButton.icon(
-                      key: const Key('confirm_import_backup_btn'),
-                      onPressed: () async {
-                        final ok = await controller.importBackupJson(
-                          importCtrl.text.trim(),
-                        );
-                        if (!sheetContext.mounted) return;
-                        if (ok) {
-                          Navigator.of(sheetContext).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                controller.strings.isDe
-                                    ? 'Fortschritt erfolgreich wiederhergestellt!'
-                                    : 'Progress backup restored successfully!',
-                              ),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        } else {
-                          setSheetState(() {
-                            importError = s.isDe
-                                ? 'Ungültiges Backup-JSON.'
-                                : 'Invalid backup JSON format.';
-                          });
-                        }
-                      },
-                      icon: const Icon(Icons.upload_file_rounded, size: 18),
-                      label: Text(s.importButton),
-                    ),
-                    const Divider(height: 28),
-                    OutlinedButton.icon(
-                      key: const Key('reset_all_progress_btn'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: semantic.wrongBorder,
-                        side: BorderSide(color: semantic.wrongBorder),
-                      ),
-                      onPressed: () async {
-                        final confirmed = await showDialog<bool>(
-                          context: sheetContext,
-                          builder: (dlgContext) => AlertDialog(
-                            title: Text(s.resetProgressTitle),
-                            content: Text(s.resetConfirmBody),
-                            actions: [
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.of(dlgContext).pop(false),
-                                child: Text(s.cancelSelection),
-                              ),
-                              FilledButton(
-                                key: const Key('confirm_reset_progress_btn'),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: semantic.wrongBorder,
-                                ),
-                                onPressed: () =>
-                                    Navigator.of(dlgContext).pop(true),
-                                child: Text(s.resetConfirmAction),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirmed == true) {
-                          await controller.resetAllProgress();
-                          if (sheetContext.mounted) {
-                            Navigator.of(sheetContext).pop();
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.delete_forever_rounded),
-                      label: Text(s.resetProgressTitle),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
@@ -250,81 +50,66 @@ class ProgressScreen extends StatelessWidget {
         final weakTopics = controller.rankedWeakTopics;
         final exams = controller.examHistory;
 
-        final zeroQuestions = controller.currentQuestions
-            .where(
-              (q) => controller.progressFor(q.questionId).attemptsCount == 0,
-            )
+        final unseenIds = controller.currentQuestions
+            .where((q) => controller.progressFor(q.questionId).isUnseen)
             .map((q) => q.questionId)
-            .toList(growable: false);
-        final onceQuestions = controller.currentQuestions
-            .where(
-              (q) => controller.progressFor(q.questionId).attemptsCount == 1,
-            )
+            .toList();
+
+        final inTrainingIds = controller.currentQuestions
+            .where((q) => controller.progressFor(q.questionId).isInTraining)
             .map((q) => q.questionId)
-            .toList(growable: false);
-        final twoPlusCount = controller.exposureCountFor(minAttempts: 2);
+            .toList();
+
+        final learnedIds = controller.currentQuestions
+            .where((q) => controller.progressFor(q.questionId).isLearned)
+            .map((q) => q.questionId)
+            .toList();
 
         return Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
+            constraints: const BoxConstraints(maxWidth: 820),
             child: ListView(
-              key: const Key('progress_scroll_view'),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               children: [
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 12,
-                  runSpacing: 8,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          s.navProgress,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                          ),
+                    Expanded(
+                      child: Text(
+                        s.progressAnalyticsTitle,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
                         ),
-                        const SizedBox(width: 10),
-                        Container(
-                          key: const Key('progress_readiness_pill'),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primaryContainer,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            '${controller.readinessPercent}%',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                    OutlinedButton.icon(
-                      key: const Key('open_backup_reset_btn'),
-                      onPressed: () => _showBackupAndResetSheet(context),
-                      icon: const Icon(Icons.import_export_rounded, size: 18),
-                      label: Text(s.backupExportImport),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${controller.readinessPercent}%',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 _CoverageOverviewCard(stats: stats, controller: controller),
-                const SizedBox(height: 20),
+                const SizedBox(height: 22),
                 _SectionHeader(title: s.weakTopicsHeader),
                 const SizedBox(height: 10),
                 if (weakTopics.isEmpty)
@@ -332,7 +117,7 @@ class ProgressScreen extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(18),
                       child: Text(
-                        s.noWeakTopicsYet,
+                        s.allTopicsInGoodShape,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -340,8 +125,9 @@ class ProgressScreen extends StatelessWidget {
                     ),
                   )
                 else
-                  for (final item in weakTopics.take(6)) ...[
+                  for (final item in weakTopics.take(3)) ...[
                     _WeakTopicCard(
+                      key: Key('weak_topic_row_${item.theme.themeCode}'),
                       item: item,
                       controller: controller,
                       onTrain: () {
@@ -366,17 +152,16 @@ class ProgressScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                   ],
-                const SizedBox(height: 14),
-                _SectionHeader(title: s.mockExamHistoryHeader),
-                const SizedBox(height: 10),
-                _ExamHistorySection(
-                  exams: exams,
-                  controller: controller,
-                  onSelectExam: (exam) => _openPastExamVerdict(context, exam),
-                  onStartExam: onStartExam,
-                ),
                 const SizedBox(height: 20),
-                _SectionHeader(title: s.exposureHeader),
+                _SectionHeader(title: s.questionExposureTitle),
+                const SizedBox(height: 6),
+                Text(
+                  s.questionExposureExplanation,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 Card(
                   child: Padding(
@@ -386,46 +171,106 @@ class ProgressScreen extends StatelessWidget {
                         _ExposureRow(
                           rowKey: const Key('exposure_row_0'),
                           buttonKey: const Key('exposure_drill_0'),
-                          label: s.exposureZero,
-                          count: zeroQuestions.length,
+                          label: s.unseenBucketTitle,
+                          subtitle: s.bucketDescription(
+                            QuestionExposureBucket.neverAnswered,
+                          ),
+                          count: unseenIds.length,
                           total: stats.totalQuestions,
                           actionLabel: s.navTrain,
-                          onAction: zeroQuestions.isEmpty
+                          onAction: unseenIds.isEmpty
                               ? null
                               : () => _launchExposureBucket(
                                   context: context,
-                                  title: s.exposureZero,
-                                  questionIds: controller
-                                      .buildLeastAnsweredQueue(
-                                        maxAttemptsExclusive: 1,
-                                      ),
+                                  title: s.unseenBucketTitle,
+                                  questionIds: unseenIds,
                                 ),
                         ),
                         const Divider(height: 22),
                         _ExposureRow(
                           rowKey: const Key('exposure_row_1'),
                           buttonKey: const Key('exposure_drill_1'),
-                          label: s.exposureOne,
-                          count: onceQuestions.length,
+                          label: s.inTrainingBucketTitle,
+                          subtitle: s.bucketDescription(
+                            QuestionExposureBucket.answeredOnce,
+                          ),
+                          count: inTrainingIds.length,
                           total: stats.totalQuestions,
                           actionLabel: s.navTrain,
-                          onAction: onceQuestions.isEmpty
+                          onAction: inTrainingIds.isEmpty
                               ? null
                               : () => _launchExposureBucket(
                                   context: context,
-                                  title: s.exposureOne,
-                                  questionIds: onceQuestions,
+                                  title: s.inTrainingBucketTitle,
+                                  questionIds: inTrainingIds,
                                 ),
                         ),
                         const Divider(height: 22),
                         _ExposureRow(
                           rowKey: const Key('exposure_row_2plus'),
-                          label: s.exposureTwoPlus,
-                          count: twoPlusCount,
+                          buttonKey: const Key('exposure_drill_2'),
+                          label: s.learnedBucketTitle,
+                          subtitle: s.bucketDescription(
+                            QuestionExposureBucket.practicedMultiple,
+                          ),
+                          count: learnedIds.length,
                           total: stats.totalQuestions,
+                          actionLabel: s.navTrain,
+                          onAction: learnedIds.isEmpty
+                              ? null
+                              : () => _launchExposureBucket(
+                                  context: context,
+                                  title: s.learnedBucketTitle,
+                                  questionIds: learnedIds,
+                                ),
                         ),
                       ],
                     ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Card(
+                  child: ListTile(
+                    key: const Key('open_mock_exam_history_btn'),
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer
+                            .withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.history_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    title: Text(
+                      s.mockExamHistoryTitle,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(
+                      exams.isEmpty
+                          ? s.noMockExamsYet
+                          : (s.isDe
+                                ? '${exams.length} Prüfungen absolviert'
+                                : '${exams.length} exams completed'),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => MockExamHistoryScreen(
+                            controller: controller,
+                            onStartPractice: onStartPractice,
+                            onStartExam: onStartExam,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -608,6 +453,7 @@ class _MetricTile extends StatelessWidget {
 
 class _WeakTopicCard extends StatelessWidget {
   const _WeakTopicCard({
+    super.key,
     required this.item,
     required this.controller,
     required this.onTrain,
@@ -643,50 +489,34 @@ class _WeakTopicCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 4,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: errPct > 0
-                                  ? semantic.wrongSurface
-                                  : semantic.correctSurface,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              s.errorRateBadge(errPct),
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                                color: errPct > 0
-                                    ? semantic.wrongText
-                                    : semantic.correctText,
-                              ),
-                            ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: errPct > 0
+                              ? semantic.wrongSurface
+                              : semantic.correctSurface,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          s.errorRateBadge(errPct),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: errPct > 0
+                                ? semantic.wrongText
+                                : semantic.correctText,
                           ),
-                          Text(
-                            '✓ ${item.stats.correctQuestions}  •  ✗ ${item.stats.wrongQuestions}  •  ○ ${item.stats.unseenQuestions}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 FilledButton.tonal(
-                  key: Key('train_weak_topic_${item.theme.themeCode}'),
+                  key: Key('drill_weak_topic_${item.theme.themeCode}'),
                   onPressed: onTrain,
                   child: Text(s.navTrain),
                 ),
@@ -701,190 +531,12 @@ class _WeakTopicCard extends StatelessWidget {
   }
 }
 
-class _ExamHistorySection extends StatelessWidget {
-  const _ExamHistorySection({
-    required this.exams,
-    required this.controller,
-    required this.onSelectExam,
-    required this.onStartExam,
-  });
-
-  final List<ExamResultRecord> exams;
-  final AppController controller;
-  final ValueChanged<ExamResultRecord> onSelectExam;
-  final VoidCallback onStartExam;
-
-  String _formatDate(int epochMs) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(epochMs);
-    final d = dt.day.toString().padLeft(2, '0');
-    final m = dt.month.toString().padLeft(2, '0');
-    final h = dt.hour.toString().padLeft(2, '0');
-    final min = dt.minute.toString().padLeft(2, '0');
-    return '$d.$m.${dt.year} $h:$min';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = controller.strings;
-    final semantic = SemanticColors.of(context);
-    final scheme = Theme.of(context).colorScheme;
-
-    if (exams.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 10,
-            children: [
-              Text(
-                s.noExamsTakenYet,
-                style: TextStyle(color: scheme.onSurfaceVariant),
-              ),
-              FilledButton.tonalIcon(
-                key: const Key('progress_start_first_exam_btn'),
-                onPressed: onStartExam,
-                icon: const Icon(Icons.timer_outlined, size: 18),
-                label: Text(s.beginLabel),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final recentChronological = exams.take(8).toList().reversed.toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  height: 88,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      for (var i = 0; i < recentChronological.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Text(
-                                '${recentChronological[i].totalErrorPoints}p',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: recentChronological[i].passed
-                                      ? semantic.correctText
-                                      : semantic.wrongText,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                height:
-                                    12 +
-                                    (recentChronological[i].totalErrorPoints
-                                            .clamp(0, 20) *
-                                        2.6),
-                                decoration: BoxDecoration(
-                                  color: recentChronological[i].passed
-                                      ? semantic.correctBorder
-                                      : semantic.wrongBorder,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  s.isDe
-                      ? 'Tippe auf eine Prüfung, um alle Fehler und Erklärungen einzusehen.'
-                      : 'Tap any completed exam to review its mistakes and explanations.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        for (var i = 0; i < exams.take(10).length; i++) ...[
-          Card(
-            child: InkWell(
-              key: Key('exam_history_item_$i'),
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => onSelectExam(exams[i]),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      exams[i].passed
-                          ? Icons.verified_rounded
-                          : Icons.cancel_rounded,
-                      color: exams[i].passed
-                          ? semantic.correctBorder
-                          : semantic.wrongBorder,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${exams[i].passed ? (s.isDe ? "Bestanden" : "Passed") : (s.isDe ? "Nicht bestanden" : "Failed")}  •  ${exams[i].totalErrorPoints} / 10 ${s.isDe ? "Pkt." : "Pts"}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14.5,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${_formatDate(exams[i].completedAtMs)}  •  ✓ ${exams[i].correctCount}  ✗ ${exams[i].wrongCount}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-      ],
-    );
-  }
-}
-
 class _ExposureRow extends StatelessWidget {
   const _ExposureRow({
     required this.rowKey,
     this.buttonKey,
     required this.label,
+    required this.subtitle,
     required this.count,
     required this.total,
     this.actionLabel,
@@ -894,6 +546,7 @@ class _ExposureRow extends StatelessWidget {
   final Key rowKey;
   final Key? buttonKey;
   final String label;
+  final String subtitle;
   final int count;
   final int total;
   final String? actionLabel;
@@ -914,19 +567,31 @@ class _ExposureRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$count / $total',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '$count / $total',
+                    subtitle,
                     style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
@@ -946,7 +611,7 @@ class _ExposureRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           child: LinearProgressIndicator(
             value: ratio,
-            minHeight: 7,
+            minHeight: 6,
             backgroundColor: scheme.surfaceContainerHighest,
           ),
         ),
