@@ -1,24 +1,26 @@
-enum AppLanguage {
-  en('en', 'EN', 'English', 'assets/driving_theory_questions_b.json'),
-  de('de', 'DE', 'Deutsch', 'assets/driving_theory_questions_de_b.json');
+import '../models/user_progress.dart';
 
-  const AppLanguage(
-    this.code,
-    this.shortLabel,
-    this.displayName,
-    this.assetPath,
-  );
+enum AppLanguage {
+  en('en', 'EN', 'English'),
+  de('de', 'DE', 'Deutsch');
+
+  const AppLanguage(this.code, this.shortLabel, this.displayName);
 
   final String code;
   final String shortLabel;
   final String displayName;
-  final String assetPath;
 
   AppLanguage get opposite =>
       this == AppLanguage.en ? AppLanguage.de : AppLanguage.en;
 
+  String get assetPath => this == AppLanguage.de
+      ? 'assets/german_questions.json'
+      : 'assets/english_questions.json';
+
   static AppLanguage fromCode(String? code) {
-    if (code == 'de') return AppLanguage.de;
+    if (code == null) return AppLanguage.en;
+    final clean = code.trim().toLowerCase();
+    if (clean.startsWith('de')) return AppLanguage.de;
     return AppLanguage.en;
   }
 }
@@ -51,31 +53,30 @@ class AppStrings {
   String get welcomeContinue => isDe ? 'Weiter' : 'Continue';
 
   // Home Cockpit
-  String get examReadiness => isDe ? 'PRÜFUNGSREIFE' : 'EXAM READINESS';
+  String get examReadiness => isDe ? 'FORTSCHRITT' : 'PROGRESS';
   String readinessStatus(int percent) {
     if (percent >= 85) {
-      return isDe ? 'Bereit für den TÜV!' : 'Exam Ready!';
+      return isDe ? 'Prüfungsreif!' : 'Exam Ready!';
     }
     if (percent >= 60) {
-      return isDe ? 'Auf gutem Weg' : 'Making Great Progress';
+      return isDe ? 'Guter Fortschritt' : 'Great Progress';
     }
-    if (percent > 0) {
-      return isDe ? 'Aufbauphase' : 'Building Foundations';
-    }
-    return isDe ? 'Bereit zum Start' : 'Ready to Start';
+    return isDe ? 'Im Lernen' : 'In Progress';
   }
 
   String get masteredLabel => isDe ? 'Gemeistert' : 'Mastered';
-  String get mistakesLabel => isDe ? 'Fehlerfragen' : 'Mistakes';
-  String get unseenLabel => isDe ? 'Offen' : 'Unseen';
+  String get mistakesLabel => isDe ? 'Fehler' : 'Mistakes';
+  String get unseenLabel => isDe ? 'Ungesehen' : 'Unseen';
+  String get inTrainingLabel => isDe ? 'Im Training' : 'In Training';
+  String get learnedLabel => isDe ? 'Gelernt' : 'Learned';
   String get leftLabel => isDe ? 'übrig' : 'left';
   String ofTotalQuestions(int total) =>
       isDe ? 'von $total Fragen gesamt' : 'of $total total questions';
 
-  String get smartPracticeTitle => isDe ? 'Smart-Training' : 'Smart Practice';
+  String get smartPracticeTitle => isDe ? 'Üben' : 'Practice';
   String get smartPracticeSubtitle => isDe
-      ? 'Optimaler Mix aus Fehlerfragen, neuen Fragen & Wiederholung'
-      : 'Adaptive mix of mistakes, unseen items & spaced review';
+      ? 'Mischung aus neuen Fragen und bisherigen Fehlern'
+      : 'Mix of unseen questions and previous mistakes';
   String get startLabel => isDe ? 'Starten' : 'Start';
   String get beginLabel => isDe ? 'Beginnen' : 'Begin';
   String get resumeExamBannerTitle => isDe
@@ -84,40 +85,36 @@ class AppStrings {
   String get resumeAction => isDe ? 'Weiter' : 'Resume';
 
   String get targetedDrillsHeader =>
-      isDe ? 'GEZIELTES TRAINING (1 KLICK)' : 'TARGETED DRILLS (1 TAP)';
+      isDe ? 'GEZIELTES TRAINING' : 'TARGETED DRILLS';
   String get drillMostMistakes => isDe ? 'Häufige Fehler' : 'Most Mistakes';
   String get drillMostMistakesSub =>
-      isDe ? 'Fragen mit hoher Fehlerquote' : 'Questions with most mistakes';
+      isDe ? 'Fragen mit vielen Fehlern' : 'Questions with most mistakes';
   String get drillLeastAnswered => isDe ? 'Wenig geübt' : 'Least Answered';
-  String get drillLeastAnsweredSub => isDe
-      ? 'Ungesehene & selten geübte Fragen'
-      : 'Unseen & least practiced items';
-  String get drillFivePoint => isDe ? '5-Punkte-Fallen' : '5-Point Traps';
-  String get drillFivePointSub => isDe
-      ? '2 Fehler = sofort durchgefallen'
-      : '2 wrong = automatic exam fail';
-  String get drillVideos => isDe ? 'Videofragen' : 'Video Scenes';
+  String get drillLeastAnsweredSub =>
+      isDe ? 'Selten geübte Fragen' : 'Least practiced questions';
+  String get drillFivePoint => isDe ? '5-Punkte-Fragen' : '5-Point Traps';
+  String get drillFivePointSub =>
+      isDe ? '2 Fehler = durchgefallen' : '2 wrong = exam fail';
+  String get drillVideos => isDe ? 'Videofragen' : 'Video Questions';
   String get drillVideosSub =>
-      isDe ? 'Dynamische Gefahrensituationen' : 'Cockpit hazard animations';
+      isDe ? 'Dynamische Verkehrsszenen' : 'Traffic hazard videos';
   String get drillNumeric => isDe ? 'Zahlenfragen' : 'Number Input';
   String get drillNumericSub =>
       isDe ? 'Formeln & Distanzen' : 'Formulas & distances';
   String get drillSaved => isDe ? 'Gemerkt' : 'Saved';
-  String get drillSavedSub =>
-      isDe ? 'Persönliche Merkliste' : 'Your saved questions';
+  String get drillSavedSub => isDe ? 'Deine Merkliste' : 'Your saved questions';
   String get noQuestionsInDrill => isDe
       ? 'Keine Fragen in dieser Auswahl vorhanden!'
       : 'No questions currently in this filter!';
 
-  String get examSimulationTitle => isDe
-      ? 'Prüfungssimulation (30 Fragen • 45 Min.)'
-      : 'Exam Simulation (30 Qs • 45 min)';
+  String get examSimulationTitle =>
+      isDe ? 'Prüfungssimulation' : 'Exam Simulation';
   String examSimulationSubtitle([String? lastSummary]) {
     final base = isDe
-        ? 'Offizielle TÜV/DEKRA-Regeln • Max. 10 Fehlerpunkte'
-        : 'Official TÜV/DEKRA rules • Max 10 error points';
+        ? '30 Fragen • 45 Min. • Max. 10 Fehlerpunkte'
+        : '30 questions • 45 min • Max 10 error points';
     if (lastSummary == null || lastSummary.isEmpty) return base;
-    return '$base • $lastSummary';
+    return '$lastSummary • $base';
   }
 
   // Question Player
@@ -129,7 +126,7 @@ class AppStrings {
   String get finishSession => isDe ? 'Training abschließen' : 'Finish Session';
   String get skipQuestion => isDe ? 'Überspringen' : 'Skip';
   String get badgeCorrect => isDe ? 'Richtig' : 'Correct';
-  String get badgeWrong => isDe ? 'Falsch gewählt' : 'Wrong choice';
+  String get badgeWrong => isDe ? 'Falsch' : 'Wrong';
   String get badgeMissed => isDe ? 'Fehlt!' : 'Missed!';
   String get feedbackPerfect =>
       isDe ? 'Richtig beantwortet!' : 'Correctly answered!';
@@ -137,8 +134,7 @@ class AppStrings {
       ? 'Nicht ganz richtig — +$pts Fehlerpunkte'
       : 'Not quite right — +$pts Error Points';
   String get explanationTitle => isDe ? 'Erklärung' : 'Explanation';
-  String get showExplanation =>
-      isDe ? 'Erklärung anzeigen' : 'Why is this right?';
+  String get showExplanation => isDe ? 'Erklärung' : 'Explanation';
   String get variantNoticeTitle =>
       isDe ? 'Variierte Prüfungsfrage (-M)' : 'Exam Variation Question (-M)';
   String get variantNoticeBody => isDe
@@ -176,8 +172,7 @@ class AppStrings {
   String get tuvVideoRuleNote => isDe
       ? 'Hinweis (TÜV-Regel): Sobald du zur Aufgabenstellung wechselst, wird nur noch das Standbild angezeigt.'
       : 'TÜV Rule: Once you open the question, only the final freeze-frame remains visible.';
-  String get freezeFrameBadge =>
-      isDe ? 'Standbild (Video beendet)' : 'Freeze-Frame (Video locked)';
+  String get freezeFrameBadge => isDe ? 'Gesperrt' : 'Locked';
   String get examStyleVideoToggle =>
       isDe ? 'TÜV-Videomodus' : 'Exam Video Mode';
   String get fullScreenVideo => isDe ? 'Vollbild' : 'Full screen';
@@ -192,11 +187,11 @@ class AppStrings {
   String get backToCockpit => isDe ? 'Zurück zur Übersicht' : 'Back to Cockpit';
 
   // Topics Screen
-  String get topicsTitle => isDe ? 'Themen & Katalog' : 'Topics & Catalog';
-  String get searchQuestionsHint => isDe
-      ? 'Thema, Stichwort oder Fragen-Nr. suchen...'
-      : 'Search topic, keyword, or question ID...';
-  String get filterAllClassB => isDe ? 'Alle Klasse B' : 'All Class B';
+  String get topicsTitle => isDe ? 'Themen' : 'Topics';
+  String get searchQuestionsHint =>
+      isDe ? 'Fragen & Themen suchen...' : 'Search questions or topics...';
+  String get filterAll => isDe ? 'Alle Themen' : 'All Topics';
+  String get filterAllClassB => isDe ? 'Alle Themen' : 'All Topics';
   String get filterGrundstoff =>
       isDe ? 'Grundstoff (1.x)' : 'Basic Material (1.x)';
   String get filterZusatzstoff =>
@@ -258,95 +253,144 @@ class AppStrings {
   String errorPointsSummary(int pts) => isDe
       ? '$pts / 10 Fehlerpunkte (max. 10 erlaubt)'
       : '$pts / 10 Error Points (max 10 allowed)';
-  String get twoFivePointFailWarning => isDe
-      ? 'Nicht bestanden wegen der Zwei-5-Punkte-Regel: Zwei falsch beantwortete 5-Punkte-Fragen führen trotz 10 Punkten automatisch zum Nichtbestehen.'
-      : 'Failed due to the Two-5-Point Rule: Answering two 5-point questions wrong triggers automatic failure under German TÜV/DEKRA rules.';
-  String get fivePointRuleOk => isDe
-      ? '5-Punkte-Regel erfüllt (max. 1 Fehler erlaubt)'
-      : '5-Point Rule satisfied (at most 1 allowed)';
-  String practiceExamMistakes(int count) => isDe
-      ? 'Diese $count Fehler jetzt gezielt üben'
-      : 'Practice These $count Mistakes Now';
-  String get reviewWrongOnly => isDe ? 'Nur Fehler' : 'Wrong Only';
-  String get reviewAll30 => isDe ? 'Alle 30 Fragen' : 'All 30 Questions';
+  String get examVerdictSubtitlePassed => isDe
+      ? 'Herzlichen Glückwunsch! Du hast die theoretische Prüfung bestanden.'
+      : 'Congratulations! You passed the theoretical Class B exam.';
+  String get examVerdictSubtitleFailed => isDe
+      ? 'Leider nicht bestanden. Übe deine Fehler und versuche es erneut.'
+      : 'Not passed. Drill your mistakes and simulate again.';
+  String practiceExamMistakes([int? count]) => isDe
+      ? (count != null ? '$count Prüfungsfehler üben' : 'Prüfungsfehler üben')
+      : (count != null
+            ? 'Practice $count Exam Mistakes'
+            : 'Practice Exam Mistakes');
+  String get reviewExamQuestions =>
+      isDe ? 'Alle 30 Fragen ansehen' : 'Review All 30 Questions';
+  String get reviewWrongOnly =>
+      isDe ? 'Nur Fehler wiederholen' : 'Review Mistakes Only';
+  String get reviewAll30 => isDe ? 'Alle 30 Fragen ansehen' : 'Review All 30';
+  String get takeAnotherExam =>
+      isDe ? 'Neue Prüfung starten' : 'Start New Exam';
   String get newExamButton => isDe ? 'Neue Prüfung' : 'New Exam';
+  String get twoFivePointFailWarning => isDe
+      ? '2 oder mehr 5-Punkte-Fragen falsch beantwortet (automatisch durchgefallen)'
+      : '2 or more 5-point questions answered incorrectly (automatic exam fail)';
+  String get fivePointRuleOk => isDe
+      ? 'Höchstens eine 5-Punkte-Frage falsch'
+      : 'At most one 5-point question incorrect';
 
   // Progress Screen
-  String get catalogCoverageHeader => isDe
-      ? 'KATALOG-ABDECKUNG (1.592 FRAGEN)'
-      : 'CATALOG COVERAGE (1,592 QUESTIONS)';
-  String overallAccuracy(int pct, int totalAnswers) => isDe
-      ? 'Trefferquote: $pct% • Gegebene Antworten: $totalAnswers'
-      : 'Overall Accuracy: $pct% • Total Answers: $totalAnswers';
-  String get weakTopicsHeader =>
-      isDe ? 'THEMEN MIT TRAININGSBEDARF' : 'TOPICS NEEDING TRAINING';
-  String get noWeakTopicsYet => isDe
-      ? 'Beantworte ein paar Fragen, um deine Stärken und Schwächen pro Thema zu sehen.'
-      : 'Answer a few questions to see personalized weak-topic recommendations.';
-  String errorRateBadge(int pct) =>
-      isDe ? '$pct% Fehlerquote' : '$pct% error rate';
-
-  String get questionsStatusLearned => isDe ? 'Gelernt' : 'Learned';
-  String get questionsStatusLearnedSub => isDe
-      ? '2× hintereinander richtig beantwortet'
-      : 'Answered correctly 2 times in a row';
-  String get questionsStatusInTraining => isDe ? 'Im Training' : 'In Training';
-  String get questionsStatusInTrainingSub => isDe
-      ? 'Geübt, aber noch nicht sicher'
-      : 'Practiced, but not yet mastered';
-  String get questionsStatusUnseen => isDe ? 'Ungesehen' : 'Unseen';
-  String get questionsStatusUnseenSub =>
-      isDe ? 'Noch nie beantwortet' : 'Never answered yet';
-
-  String get mockExamHistoryHeader => isDe
-      ? 'PRÜFUNGSHISTORIE (BESTEHENSGRENZE: ≤ 10 PKT.)'
-      : 'MOCK EXAM HISTORY (PASS: ≤ 10 PTS)';
-  String get mockExamHistoryButton =>
+  String get progressAnalyticsTitle =>
+      isDe ? 'Fortschritt & Statistik' : 'Progress & Analytics';
+  String get mockExamHistoryTitle =>
       isDe ? 'Prüfungshistorie' : 'Mock Exam History';
-  String get mockExamHistorySubtitle => isDe
-      ? 'Frühere Prüfungssimulationen und Fehler einsehen'
-      : 'View past exam results and mistakes';
-  String get noExamsTakenYet => isDe
-      ? 'Noch keine Prüfungssimulation absolviert.'
-      : 'No mock exams completed yet.';
+  String get viewMockExamHistory =>
+      isDe ? 'Prüfungshistorie anzeigen' : 'View Mock Exam History';
+  String get noMockExamsYet =>
+      isDe ? 'Noch keine Prüfung absolviert' : 'No mock exams taken yet';
+  String get topicsNeedingTraining =>
+      isDe ? 'Themen mit Nachholbedarf' : 'Topics Needing Training';
+  String get allTopicsInGoodShape => isDe
+      ? 'Hervorragend! Keine auffälligen Schwachstellen.'
+      : 'Great job! No weak topics detected yet.';
+  String get questionExposureTitle =>
+      isDe ? 'Lernstatus der Fragen' : 'Question Learning Status';
+  String get questionExposureExplanation => isDe
+      ? 'Eine Frage gilt als "Gelernt", wenn du sie 2-mal hintereinander richtig beantwortet hast.'
+      : 'A question is considered "Learned" once answered correctly 2 times in a row.';
+  String get unseenBucketTitle => isDe ? 'Ungesehen' : 'Unseen';
+  String get inTrainingBucketTitle => isDe ? 'Im Training' : 'In Training';
+  String get learnedBucketTitle => isDe ? 'Gelernt' : 'Learned';
+  String get neverAnsweredBucketTitle => isDe ? 'Ungesehen' : 'Unseen';
+  String get answeredOnceBucketTitle => isDe ? 'Im Training' : 'In Training';
+  String get practicedMultipleBucketTitle => isDe ? 'Gelernt' : 'Learned';
+  String bucketDescription(QuestionExposureBucket bucket) {
+    switch (bucket) {
+      case QuestionExposureBucket.neverAnswered:
+        return isDe ? 'Noch nie geübt' : 'Never attempted';
+      case QuestionExposureBucket.answeredOnce:
+        return isDe
+            ? 'In Übung (noch nicht gefestigt)'
+            : 'Attempted, not yet mastered';
+      case QuestionExposureBucket.practicedMultiple:
+        return isDe
+            ? 'Zuletzt 2x in Folge richtig'
+            : 'Last 2 consecutive times correct';
+    }
+  }
 
-  String get exposureHeader =>
-      isDe ? 'WIE OFT WURDEN FRAGEN GEÜBT?' : 'QUESTION EXPOSURE DISTRIBUTION';
-  String get exposureZero =>
-      isDe ? 'Noch nie beantwortet (0×)' : 'Never answered (0×)';
-  String get exposureOne =>
-      isDe ? 'Einmal beantwortet (1×)' : 'Answered once (1×)';
-  String get exposureTwoPlus =>
-      isDe ? 'Mehrfach geübt (2+×)' : 'Practiced 2+ times (2+×)';
-
-  String get backupExportImport => isDe ? 'Backup / Reset' : 'Backup / Reset';
+  String get backupAndResetHeader =>
+      isDe ? 'DATEN & FORTSCHRITT' : 'DATA & PROGRESS';
+  String get exportProgressBackup =>
+      isDe ? 'Fortschritt sichern (JSON)' : 'Export Backup (JSON)';
   String get exportProgressTitle =>
-      isDe ? 'Fortschritt sichern (JSON)' : 'Backup Progress (JSON)';
+      isDe ? 'Fortschritt sichern (JSON)' : 'Export Backup (JSON)';
+  String get copyToClipboard =>
+      isDe ? 'In Zwischenablage kopieren' : 'Copy to Clipboard';
+  String get importProgressBackup =>
+      isDe ? 'Backup wiederherstellen' : 'Import Backup (JSON)';
   String get importProgressTitle =>
-      isDe ? 'Fortschritt wiederherstellen' : 'Import Backup JSON';
+      isDe ? 'Backup wiederherstellen' : 'Import Backup (JSON)';
+  String get importButton => isDe ? 'Wiederherstellen' : 'Restore';
+  String get backupExportImport =>
+      isDe ? 'Sichern / Wiederherstellen' : 'Backup & Restore';
   String get resetProgressTitle =>
-      isDe ? 'Gesamten Fortschritt zurücksetzen' : 'Reset All Progress';
+      isDe ? 'Fortschritt zurücksetzen' : 'Reset All Progress';
   String get resetConfirmBody => isDe
-      ? 'Möchtest du wirklich alle Antworten, Fehlerlisten und Prüfungsergebnisse unwiderruflich löschen?'
-      : 'Are you sure you want to permanently clear all answered history, mistakes, and mock exam results?';
-  String get resetConfirmAction => isDe ? 'Zurücksetzen' : 'Reset Everything';
-  String get copyToClipboard => isDe ? 'JSON kopieren' : 'Copy JSON';
-  String get importButton => isDe ? 'Importieren' : 'Import';
-
-  // Settings Screen
-  String get settingsLanguageHeader => isDe ? 'SPRACHE' : 'LANGUAGE';
-  String get settingsThemeHeader => isDe ? 'DESIGN' : 'THEME';
-  String get settingsDarkMode => isDe ? 'Dunkelmodus' : 'Dark Mode';
-  String get settingsResetHeader => isDe ? 'FORTSCHRITT' : 'PROGRESS';
+      ? 'Möchtest du wirklich deinen gesamten Lernfortschritt, Fehlerhistorie und Prüfungsergebnisse unwiderruflich löschen?'
+      : 'Are you sure you want to permanently erase all question progress, mistake history, and mock exam results?';
+  String get resetConfirmAction =>
+      isDe ? 'Ja, alles löschen' : 'Yes, Reset Everything';
   String get cancelAction => isDe ? 'Abbrechen' : 'Cancel';
   String get progressResetSuccess => isDe
-      ? 'Fortschritt erfolgreich zurückgesetzt.'
-      : 'Progress reset successfully.';
+      ? 'Dein Fortschritt wurde erfolgreich zurückgesetzt.'
+      : 'All study progress was successfully reset.';
+  String get backupExportSuccess => isDe
+      ? 'Backup erfolgreich in die Zwischenablage kopiert!'
+      : 'Backup copied to clipboard!';
+  String get backupImportSuccess => isDe
+      ? 'Backup erfolgreich wiederhergestellt!'
+      : 'Backup restored successfully!';
+  String get backupImportError =>
+      isDe ? 'Ungültiges Backup-Format.' : 'Invalid backup JSON file or text.';
+  String get weakTopicsHeader =>
+      isDe ? 'THEMEN MIT NACHHOLBEDARF' : 'TOPICS NEEDING TRAINING';
+  String get noWeakTopicsYet =>
+      isDe ? 'Keine Schwachstellen erkannt' : 'No weak topics detected';
+  String get mockExamHistoryHeader =>
+      isDe ? 'PRÜFUNGSHISTORIE' : 'MOCK EXAM HISTORY';
+  String get exposureHeader =>
+      isDe ? 'LERNSTATUS DER FRAGEN' : 'QUESTION EXPOSURE';
+  String get exposureZero => isDe ? 'Ungesehen' : 'Unseen';
+  String get exposureOne => isDe ? 'Im Training' : 'In Training';
+  String get exposureTwoPlus => isDe ? 'Gelernt' : 'Learned';
+  String get catalogCoverageHeader =>
+      isDe ? 'KATALOG-ABDECKUNG' : 'CATALOG COVERAGE';
+  String overallAccuracy(int pct, [int? totalAttempts]) =>
+      isDe ? 'Gesamtgenauigkeit: $pct%' : 'Overall Accuracy: $pct%';
+  String errorRateBadge(int pct) => isDe ? '$pct% Fehler' : '$pct% error rate';
+  String get noExamsTakenYet =>
+      isDe ? 'Noch keine Prüfungen absolviert' : 'No mock exams taken yet';
+
+  // Settings Screen
+  String get settingsLanguageHeader =>
+      isDe ? 'LERNERSPRACHE' : 'STUDY LANGUAGE';
+  String get settingsThemeHeader => isDe ? 'ERSCHEINUNGSBILD' : 'APPEARANCE';
+  String get settingsDarkMode => isDe ? 'Dunkelmodus' : 'Dark Mode';
+  String get settingsResetHeader => isDe ? 'DATEN' : 'DATA';
 
   // About Screen
   String get aboutAppHeader =>
       isDe ? 'Über Führerschein Klasse B' : 'About Class B Theory Trainer';
   String get aboutAppBody => isDe
-      ? 'Diese App hilft dir bei der gezielten Vorbereitung auf die theoretische Führerscheinprüfung der Klasse B in Deutschland (TÜV / DEKRA).\n\n• Offizieller Fragenkatalog mit 1.592 Fragen (Grundstoff + Zusatzstoff B)\n• Dynamische Video- und Bildfragen sowie Zahlenfragen\n• Reale Prüfungssimulation mit 30 Fragen und 45 Minuten Zeitlimit\n• 100% lokal: Kein Account, kein Login, deine Daten bleiben auf deinem Gerät.'
-      : 'This app is designed to help you prepare effectively for the German Class B driving theory exam (TÜV / DEKRA).\n\n• Official catalog of 1,592 questions (Basic Material + Class B Add-on)\n• Dynamic video hazards, static scenes, and numeric formulas\n• Official 30-question mock exam simulation with 45-minute countdown\n• 100% local: No account or registration required, all progress stays on your device.';
+      ? 'Diese App bereitet dich gezielt und ergonomisch auf die offizielle theoretische Führerscheinprüfung der Klasse B bei TÜV und DEKRA in Deutschland vor.\n\n'
+            '• Vollständiger amtlicher Fragenkatalog mit allen 1.592 Fragen\n'
+            '• Zweisprachig: Vollständig auf Deutsch und Englisch verfügbar\n'
+            '• Offizielle Prüfungsregeln: 30 Fragen, 45 Minuten Zeitlimit, max. 10 Fehlerpunkte (oder max. 1 Frage mit 5 Wertungspunkten)\n'
+            '• Alle Daten bleiben lokal auf deinem Gerät gespeichert — keine Registrierung notwendig.'
+      : 'This application prepares you efficiently and ergonomically for the official German Class B theoretical driving license examination at TÜV and DEKRA.\n\n'
+            '• Complete official catalog with all 1,592 questions\n'
+            '• Fully bilingual: study seamlessly in English or German\n'
+            '• Official exam simulation rules: 30 questions, 45 minutes, max 10 error points (or max 1 five-point question wrong)\n'
+            '• Zero registration: your progress is saved 100% locally and privately on your device.';
 }

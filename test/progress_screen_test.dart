@@ -219,11 +219,8 @@ void main() {
       final savedBackup = controller.exportBackupJson();
       expect(savedBackup, contains('1.3.01-001'));
 
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('open_backup_reset_btn')),
-        -250,
-        scrollable: find.byType(Scrollable).first,
-      );
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 600));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('open_backup_reset_btn')));
       await tester.pumpAndSettle();
 
@@ -252,11 +249,8 @@ void main() {
       expect(examLaunchedCount, 1);
 
       // Re-open Backup/Reset sheet and paste savedBackup JSON to restore!
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('open_backup_reset_btn')),
-        -250,
-        scrollable: find.byType(Scrollable).first,
-      );
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 600));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('open_backup_reset_btn')));
       await tester.pumpAndSettle();
 

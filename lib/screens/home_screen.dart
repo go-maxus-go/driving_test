@@ -75,14 +75,20 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 14),
             ],
-            _ReadinessHeroCard(
+            _ExamSimulationCard(
+              strings: s,
+              subtitle: s.examSimulationSubtitle(lastExamSummary),
+              onStart: onStartNewExam,
+            ),
+            const SizedBox(height: 14),
+            _LearningProgressCard(
               readinessPercent: readiness,
               stats: stats,
               strings: s,
               onTap: onOpenProgressTab,
             ),
             const SizedBox(height: 14),
-            _SmartPracticeHeroButton(
+            _PracticeHeroButton(
               strings: s,
               onTap: () {
                 final queue = controller.buildSmartPracticeQueue();
@@ -184,44 +190,43 @@ class HomeScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _DrillTileCard(
+                        key: const Key('drill_numeric'),
+                        icon: Icons.pin_outlined,
+                        accentColor: const Color(0xFF0284C7),
+                        title: s.drillNumeric,
+                        subtitle: s.drillNumericSub,
+                        count: numericIds.length,
+                        onTap: () => _launchIfNotEmpty(
+                          context,
+                          s,
+                          title: s.drillNumeric,
+                          ids: numericIds,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _DrillTileCard(
+                        key: const Key('drill_saved'),
+                        icon: Icons.bookmark_outline_rounded,
+                        accentColor: const Color(0xFFD97706),
+                        title: s.drillSaved,
+                        subtitle: s.drillSavedSub,
+                        count: savedIds.length,
+                        onTap: () => _launchIfNotEmpty(
+                          context,
+                          s,
+                          title: s.drillSaved,
+                          ids: savedIds,
+                        ),
+                      ),
+                    ),
                   ],
                 );
               },
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                ActionChip(
-                  key: const Key('drill_numeric'),
-                  avatar: const Icon(Icons.pin_outlined, size: 18),
-                  label: Text('${s.drillNumeric} (${numericIds.length})'),
-                  onPressed: () => _launchIfNotEmpty(
-                    context,
-                    s,
-                    title: s.drillNumeric,
-                    ids: numericIds,
-                  ),
-                ),
-                ActionChip(
-                  key: const Key('drill_saved'),
-                  avatar: const Icon(Icons.bookmark_outline_rounded, size: 18),
-                  label: Text('${s.drillSaved} (${savedIds.length})'),
-                  onPressed: () => _launchIfNotEmpty(
-                    context,
-                    s,
-                    title: s.drillSaved,
-                    ids: savedIds,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _ExamSimulationCard(
-              strings: s,
-              subtitle: s.examSimulationSubtitle(lastExamSummary),
-              onStart: onStartNewExam,
             ),
           ],
         ),
@@ -246,7 +251,13 @@ class HomeScreen extends StatelessWidget {
         );
       return;
     }
-    onStartPractice(PracticeLaunchRequest(title: title, questionIds: ids));
+    onStartPractice(
+      PracticeLaunchRequest(
+        title: title,
+        questionIds: ids,
+        allowContinueSmartBatch: false,
+      ),
+    );
   }
 }
 
@@ -321,8 +332,8 @@ class _ResumeExamBanner extends StatelessWidget {
   }
 }
 
-class _ReadinessHeroCard extends StatelessWidget {
-  const _ReadinessHeroCard({
+class _LearningProgressCard extends StatelessWidget {
+  const _LearningProgressCard({
     required this.readinessPercent,
     required this.stats,
     required this.strings,
@@ -351,20 +362,20 @@ class _ReadinessHeroCard extends StatelessWidget {
               Row(
                 children: [
                   SizedBox(
-                    width: 64,
-                    height: 64,
+                    width: 60,
+                    height: 60,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
                         CircularProgressIndicator(
                           value: readinessPercent / 100.0,
-                          strokeWidth: 7,
+                          strokeWidth: 6.5,
                           backgroundColor: scheme.surfaceContainerHighest,
                         ),
                         Text(
                           '$readinessPercent%',
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -377,11 +388,11 @@ class _ReadinessHeroCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${strings.examReadiness} • ${strings.readinessStatus(readinessPercent)}',
+                          strings.examReadiness,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
+                            letterSpacing: 0.8,
                             color: scheme.primary,
                           ),
                         ),
@@ -391,7 +402,7 @@ class _ReadinessHeroCard extends StatelessWidget {
                         Text(
                           strings.ofTotalQuestions(stats.totalQuestions),
                           style: TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 12,
                             color: scheme.onSurfaceVariant,
                           ),
                         ),
@@ -405,7 +416,7 @@ class _ReadinessHeroCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              StackedCoverageBar(stats: stats, height: 10),
+              StackedCoverageBar(stats: stats, height: 8),
             ],
           ),
         ),
@@ -414,8 +425,8 @@ class _ReadinessHeroCard extends StatelessWidget {
   }
 }
 
-class _SmartPracticeHeroButton extends StatelessWidget {
-  const _SmartPracticeHeroButton({required this.strings, required this.onTap});
+class _PracticeHeroButton extends StatelessWidget {
+  const _PracticeHeroButton({required this.strings, required this.onTap});
 
   final AppStrings strings;
   final VoidCallback onTap;
@@ -423,28 +434,20 @@ class _SmartPracticeHeroButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.primary,
-      borderRadius: BorderRadius.circular(18),
+    return Card(
+      color: scheme.primaryContainer,
       child: InkWell(
         key: const Key('smart_practice_cta'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: scheme.onPrimary.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.bolt_rounded,
-                  color: scheme.onPrimary,
-                  size: 28,
-                ),
+              Icon(
+                Icons.play_arrow_rounded,
+                color: scheme.onPrimaryContainer,
+                size: 28,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -454,51 +457,26 @@ class _SmartPracticeHeroButton extends StatelessWidget {
                     Text(
                       strings.smartPracticeTitle,
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: scheme.onPrimary,
+                        color: scheme.onPrimaryContainer,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       strings.smartPracticeSubtitle,
                       style: TextStyle(
-                        fontSize: 13,
-                        color: scheme.onPrimary.withValues(alpha: 0.88),
+                        fontSize: 12.5,
+                        color: scheme.onPrimaryContainer.withValues(
+                          alpha: 0.85,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  color: scheme.onPrimary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      strings.startLabel,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: scheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 18,
-                      color: scheme.primary,
-                    ),
-                  ],
-                ),
-              ),
+              const SizedBox(width: 10),
+              FilledButton(onPressed: onTap, child: Text(strings.startLabel)),
             ],
           ),
         ),
@@ -572,7 +550,7 @@ class _DrillTileCard extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -581,10 +559,7 @@ class _DrillTileCard extends StatelessWidget {
                 subtitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: scheme.onSurfaceVariant,
-                ),
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -619,7 +594,7 @@ class _ExamSimulationCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(11),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: scheme.secondaryContainer,
                   borderRadius: BorderRadius.circular(12),
@@ -646,7 +621,7 @@ class _ExamSimulationCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12.5,
                         color: scheme.onSurfaceVariant,
                       ),
                     ),

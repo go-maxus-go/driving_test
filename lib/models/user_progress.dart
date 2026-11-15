@@ -1,5 +1,7 @@
 enum QuestionStatus { unseen, correct, wrong }
 
+enum QuestionExposureBucket { neverAnswered, answeredOnce, practicedMultiple }
+
 class QuestionProgress {
   const QuestionProgress({
     required this.questionId,
