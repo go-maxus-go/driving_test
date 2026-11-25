@@ -16,6 +16,7 @@ class AnswerOptionCard extends StatelessWidget {
     required this.option,
     required this.isSelected,
     required this.strings,
+    this.displayLetterOverride,
     this.feedbackState,
     this.peekTranslationText,
     this.onTap,
@@ -24,6 +25,10 @@ class AnswerOptionCard extends StatelessWidget {
   final QuestionOption option;
   final bool isSelected;
   final AppStrings strings;
+
+  /// Optional alphabetical display label (e.g. `"A."`, `"B."`, `"C."`) when
+  /// options are presented in a shuffled order.
+  final String? displayLetterOverride;
   final OptionFeedbackState? feedbackState;
   final String? peekTranslationText;
   final VoidCallback? onTap;
@@ -33,6 +38,7 @@ class AnswerOptionCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final semantic = SemanticColors.of(context);
     final mediaCache = MediaCacheScope.maybeOf(context);
+    final shownLetter = displayLetterOverride ?? option.displayLetter;
 
     Color bgColor = semantic.cardSurface;
     Color borderColor = semantic.subtleBorder;
@@ -140,7 +146,8 @@ class AnswerOptionCard extends StatelessWidget {
                 leadingIcon,
                 const SizedBox(width: 12),
                 Text(
-                  option.displayLetter,
+                  shownLetter,
+                  key: Key('option_letter_${option.letter}'),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,

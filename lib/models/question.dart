@@ -1,3 +1,5 @@
+import 'dart:math';
+
 enum QuestionMediaKind { none, staticImage, video, optionImages }
 
 enum QuestionInputKind { multipleChoice, numericInput }
@@ -16,6 +18,13 @@ class QuestionOption {
   final String? imageAssetPath;
 
   String get displayLetter => letter.endsWith('.') ? letter : '$letter.';
+
+  /// Returns alphabetical display letters (`"A."`, `"B."`, `"C."`, ...)
+  /// for a 0-based displayed option index.
+  static String alphabeticalLabelForIndex(int index) {
+    final codeUnit = 'A'.codeUnitAt(0) + index;
+    return '${String.fromCharCode(codeUnit)}.';
+  }
 
   static String normalizeLetter(String raw) {
     final trimmed = raw.trim();
@@ -86,9 +95,45 @@ class Question {
   /// Official German Mutterfrage (`-M`) subject to visual exam-day variations.
   bool get isMotherVariant => questionId.endsWith('-M');
 
+  /// True for questions that present static image(s) (not videos).
+  bool get isImageQuestion =>
+      mediaKind == QuestionMediaKind.staticImage ||
+      mediaKind == QuestionMediaKind.optionImages;
+
+  /// True for road/traffic sign questions (official themes 1.4 & 2.4 or sign-option items).
+  bool get isSignQuestion =>
+      themeCode == '1.4' ||
+      themeCode == '2.4' ||
+      mediaKind == QuestionMediaKind.optionImages;
+
   /// Primary static image or post-video freeze-frame (`Standbild`).
   String? get primaryImageAsset =>
       imageAssetPaths.isNotEmpty ? imageAssetPaths.first : null;
+
+  /// Returns this question's canonical option letters shuffled into a random order.
+  List<String> shuffledOptionLetters(Random random) {
+    final letters = options.map((o) => o.letter).toList();
+    if (letters.length > 1) {
+      letters.shuffle(random);
+    }
+    return List.unmodifiable(letters);
+  }
+
+  /// Resolves a list of canonical option letters back into [QuestionOption]
+  /// instances in that exact order, falling back to canonical [options] if invalid.
+  List<QuestionOption> orderedOptions(List<String>? orderedLetters) {
+    if (orderedLetters == null || orderedLetters.length != options.length) {
+      return options;
+    }
+    final byLetter = {for (final o in options) o.letter: o};
+    final resolved = <QuestionOption>[];
+    for (final letter in orderedLetters) {
+      final opt = byLetter[letter];
+      if (opt == null) return options;
+      resolved.add(opt);
+    }
+    return resolved;
+  }
 
   static final RegExp _pointsRegex = RegExp(r'(\d+)');
   static final RegExp _chapterRegex = RegExp(r'(\d+\.\d+\.\d+)');

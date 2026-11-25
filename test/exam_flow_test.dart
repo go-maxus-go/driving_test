@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:driving_exam/data/catalog_repository.dart';
 import 'package:driving_exam/l10n/app_language.dart';
 import 'package:driving_exam/models/answer_evaluation.dart';
@@ -9,6 +11,17 @@ import 'package:driving_exam/state/app_controller.dart';
 import 'package:driving_exam/theme/app_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+
+class _SwapRandom implements Random {
+  @override
+  int nextInt(int max) => 0;
+
+  @override
+  bool nextBool() => false;
+
+  @override
+  double nextDouble() => 0.0;
+}
 
 CatalogRepository _buildExamTestRepo() {
   final questions = <Question>[];
@@ -74,7 +87,7 @@ CatalogRepository _buildExamTestRepo() {
 
 void main() {
   testWidgets(
-    'ExamPlayer enforces 2-phase video lock, grades 30 questions, filters via single Mistakes Only checkbox, and retries the exact same exam',
+    'ExamPlayer shuffles options with alphabetical letters, enforces 2-phase video lock, grades 30 questions by actual answers, filters via single Mistakes Only checkbox, and retries the exact same exam',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(430, 932);
       tester.view.devicePixelRatio = 1.0;
@@ -112,6 +125,7 @@ void main() {
           home: ExamPlayerScreen(
             controller: controller,
             enableNativeVideo: false,
+            random: _SwapRandom(),
           ),
         ),
       );
@@ -132,6 +146,19 @@ void main() {
       expect(find.byKey(const Key('freeze_frame_badge')), findsOneWidget);
       expect(find.text('Locked'), findsOneWidget);
 
+      // Verify options are shuffled ([B, A]) while displayed labels remain A., B.
+      final yA = tester.getTopLeft(find.byKey(const Key('option_card_A'))).dy;
+      final yB = tester.getTopLeft(find.byKey(const Key('option_card_B'))).dy;
+      expect(yB, lessThan(yA));
+      expect(
+        tester.widget<Text>(find.byKey(const Key('option_letter_B'))).data,
+        'A.',
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('option_letter_A'))).data,
+        'B.',
+      );
+
       // Verify points, topic name, and flag button are NOT displayed during exam
       expect(find.textContaining('Points •'), findsNothing);
       expect(find.textContaining('Grundstoff'), findsNothing);
@@ -148,7 +175,7 @@ void main() {
       await tester.tap(find.byKey(const Key('jump_to_open_question_btn')));
       await tester.pumpAndSettle();
 
-      // Select correct option A on Q1 -> now all 30 questions are answered!
+      // Select actual correct answer ('Safe action', displayed as 'B.') -> graded correct!
       await tester.tap(find.byKey(const Key('option_card_A')));
       await tester.pump();
 

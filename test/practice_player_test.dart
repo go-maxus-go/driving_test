@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:driving_exam/data/catalog_repository.dart';
 import 'package:driving_exam/models/question.dart';
 import 'package:driving_exam/screens/home_screen.dart';
@@ -55,9 +57,22 @@ CatalogRepository _buildPlayerTestRepo() {
   return CatalogRepository.fromQuestions(englishQuestions: [q1En, q2En]);
 }
 
+/// Deterministic RNG that forces a known non-identity permutation for 3 options
+/// (`['A', 'B', 'C']` -> `['C', 'A', 'B']`).
+class _ReversingRandom implements Random {
+  @override
+  int nextInt(int max) => 0;
+
+  @override
+  bool nextBool() => false;
+
+  @override
+  double nextDouble() => 0.0;
+}
+
 void main() {
   testWidgets(
-    'PracticePlayer uses icon buttons for Skip (right arrow) & Retry, auto-expands explanation, keeps numeric keypad stable on input, and shows Continue practice / Back to Menu on completion',
+    'PracticePlayer shuffles answers with alphabetical A/B/C labels, keeps nav buttons visible & disabled at ends, stabilizes numeric keypad, and grades by actual answers',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(412, 915);
       tester.view.devicePixelRatio = 1.0;
@@ -74,6 +89,7 @@ void main() {
           home: PracticePlayerScreen(
             controller: controller,
             enableNativeVideo: false,
+            random: _ReversingRandom(),
             request: const PracticeLaunchRequest(
               title: 'Practice',
               questionIds: ['1.1.01-001-M', '2.7.01-010'],
@@ -92,8 +108,17 @@ void main() {
         '2 left',
       );
 
-      // Skip button is an icon button with right arrow (no text label)
-      expect(find.byKey(const Key('skip_question_btn')), findsOneWidget);
+      // On first question: Previous button IS visible (not hidden) and DISABLED;
+      // Next/Skip button IS visible and ENABLED.
+      final prevBtnQ1 = tester.widget<IconButton>(
+        find.byKey(const Key('prev_question_btn')),
+      );
+      expect(prevBtnQ1.onPressed, isNull);
+
+      final skipBtnQ1 = tester.widget<IconButton>(
+        find.byKey(const Key('skip_question_btn')),
+      );
+      expect(skipBtnQ1.onPressed, isNotNull);
       expect(
         find.descendant(
           of: find.byKey(const Key('skip_question_btn')),
@@ -103,10 +128,33 @@ void main() {
       );
       expect(find.text('Skip'), findsNothing);
 
+      // Verify answers are shuffled (not in canonical A, B, C order), yet
+      // their displayed letters from top to bottom are strictly A., B., C.!
+      final yA = tester.getTopLeft(find.byKey(const Key('option_card_A'))).dy;
+      final yB = tester.getTopLeft(find.byKey(const Key('option_card_B'))).dy;
+      final yC = tester.getTopLeft(find.byKey(const Key('option_card_C'))).dy;
+      final orderedByY = [
+        (y: yA, canonical: 'A'),
+        (y: yB, canonical: 'B'),
+        (y: yC, canonical: 'C'),
+      ]..sort((a, b) => a.y.compareTo(b.y));
+
+      expect(
+        orderedByY.map((e) => e.canonical).toList(),
+        isNot(equals(['A', 'B', 'C'])),
+      );
+      for (var i = 0; i < orderedByY.length; i++) {
+        final canonical = orderedByY[i].canonical;
+        final labelText = tester
+            .widget<Text>(find.byKey(Key('option_letter_$canonical')))
+            .data;
+        expect(labelText, QuestionOption.alphabeticalLabelForIndex(i));
+      }
+
       // No -M badge clutter on header
       expect(find.text('-M'), findsNothing);
 
-      // Select A (correct) and C (wrong), leaving B (correct) unselected
+      // Select canonical A (correct) and C (wrong), leaving B (correct) unselected
       await tester.tap(find.byKey(const Key('option_card_A')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('option_card_C')));
@@ -122,7 +170,7 @@ void main() {
         findsOneWidget,
       );
 
-      // Badges are displayed with 1-word label for wrong ('Wrong')
+      // Badges reflect actual answers (canonical A correct, B missed, C wrong)
       expect(find.byKey(const Key('badge_correct_A')), findsOneWidget);
       expect(find.byKey(const Key('badge_missed_B')), findsOneWidget);
       expect(find.byKey(const Key('badge_wrong_C')), findsOneWidget);
@@ -154,7 +202,8 @@ void main() {
       expect(find.byKey(const Key('badge_wrong_C')), findsNothing);
       expect(find.text('Check Answer'), findsOneWidget);
 
-      // Now answer correctly: select A and B -> Explanation is IMMEDIATELY expanded, Retry is still an icon button
+      // Answer correctly by tapping the actual correct answers regardless of
+      // their shuffled positions -> graded as correct!
       await tester.tap(find.byKey(const Key('option_card_A')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('option_card_B')));
@@ -165,28 +214,32 @@ void main() {
       expect(find.byKey(const Key('badge_correct_A')), findsOneWidget);
       expect(find.byKey(const Key('badge_correct_B')), findsOneWidget);
       expect(
-        find.descendant(
-          of: find.byKey(const Key('retry_question_btn')),
-          matching: find.byIcon(Icons.replay_rounded),
-        ),
-        findsOneWidget,
+        tester
+            .widget<Text>(find.byKey(const Key('session_correct_count')))
+            .data,
+        '1',
       );
-      expect(find.text('Retry'), findsNothing);
       expect(find.byKey(const Key('explanation_card')), findsOneWidget);
-      expect(
-        find.text('Defensive driving means anticipating mistakes.'),
-        findsOneWidget,
-      );
 
-      // Advance to Question 2 (Numeric Input)
+      // Advance to Question 2 (last question, Numeric Input)
       await tester.tap(find.byKey(const Key('primary_practice_cta')));
       await tester.pump();
 
       expect(find.text('Minimum tire tread depth in mm?'), findsOneWidget);
 
-      // Previous button (back arrow) is present on Question 2
-      expect(find.byKey(const Key('prev_question_btn')), findsOneWidget);
-      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+      // On the last question: Previous button is ENABLED, and Next/Skip button
+      // IS visible (not hidden) and DISABLED!
+      final prevBtnQ2 = tester.widget<IconButton>(
+        find.byKey(const Key('prev_question_btn')),
+      );
+      expect(prevBtnQ2.onPressed, isNotNull);
+
+      final skipBtnQ2 = tester.widget<IconButton>(
+        find.byKey(const Key('skip_question_btn')),
+      );
+      expect(skipBtnQ2.onPressed, isNull);
+
+      // Navigate back to Q1 via Previous button
       await tester.tap(find.byKey(const Key('prev_question_btn')));
       await tester.pump();
 

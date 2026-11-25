@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -18,18 +20,22 @@ class PracticePlayerScreen extends StatefulWidget {
     required this.controller,
     required this.request,
     this.enableNativeVideo = true,
+    this.random,
   });
 
   final AppController controller;
   final PracticeLaunchRequest request;
   final bool enableNativeVideo;
+  final Random? random;
 
   @override
   State<PracticePlayerScreen> createState() => _PracticePlayerScreenState();
 }
 
 class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
+  late final Random _random;
   late List<String> _queueIds;
+  final Map<int, List<String>> _optionOrderBySlot = <int, List<String>>{};
   int _currentIndex = 0;
 
   Set<String> _selectedLetters = <String>{};
@@ -46,6 +52,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _random = widget.random ?? Random();
     _queueIds = List<String>.from(widget.request.questionIds);
     _prefetchUpcoming();
   }
@@ -72,6 +79,18 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
   Question? get _currentQuestion {
     if (_queueIds.isEmpty || _currentIndex >= _queueIds.length) return null;
     return widget.controller.questionById(_queueIds[_currentIndex]);
+  }
+
+  List<QuestionOption> _displayedOptionsFor(Question q, int slotIndex) {
+    if (q.inputKind != QuestionInputKind.multipleChoice ||
+        q.options.length <= 1) {
+      return q.options;
+    }
+    final order = _optionOrderBySlot.putIfAbsent(
+      slotIndex,
+      () => q.shuffledOptionLetters(_random),
+    );
+    return q.orderedOptions(order);
   }
 
   bool get _canSubmit {
@@ -136,11 +155,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
   }
 
   void _skipCurrentQuestion() {
-    if (_evaluation != null) return;
-    if (_currentIndex + 1 >= _queueIds.length) {
-      Navigator.of(context).pop();
-      return;
-    }
+    if (_evaluation != null || _currentIndex + 1 >= _queueIds.length) return;
     setState(() {
       _currentIndex++;
       _resetQuestionState();
@@ -159,6 +174,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
 
   void _retryCurrentQuestion() {
     setState(() {
+      _optionOrderBySlot.remove(_currentIndex);
       _resetQuestionState();
     });
   }
@@ -172,6 +188,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
   void _restartWithIds(List<String> newIds) {
     setState(() {
       _queueIds = List<String>.from(newIds);
+      _optionOrderBySlot.clear();
       _currentIndex = 0;
       _sessionCorrect = 0;
       _sessionWrong = 0;
@@ -208,6 +225,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
 
     if (_evaluation == null) {
       if (q.inputKind == QuestionInputKind.multipleChoice) {
+        final displayedOptions = _displayedOptionsFor(q, _currentIndex);
         int? optIdx;
         if (key == LogicalKeyboardKey.digit1 ||
             key == LogicalKeyboardKey.keyA) {
@@ -219,8 +237,8 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
             key == LogicalKeyboardKey.keyC) {
           optIdx = 2;
         }
-        if (optIdx != null && optIdx < q.options.length) {
-          _toggleOption(q.options[optIdx].letter);
+        if (optIdx != null && optIdx < displayedOptions.length) {
+          _toggleOption(displayedOptions[optIdx].letter);
           return KeyEventResult.handled;
         }
       } else {
@@ -280,6 +298,8 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
             );
           }
 
+          final hasPrev = _currentIndex > 0;
+          final hasNext = _currentIndex + 1 < _queueIds.length;
           final answeredInRun = _evaluation != null
               ? _currentIndex + 1
               : _currentIndex;
@@ -405,24 +425,22 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                         children: [
                           Row(
                             children: [
-                              if (_currentIndex > 0) ...[
-                                IconButton.outlined(
-                                  key: const Key('prev_question_btn'),
-                                  tooltip: s.prevQuestion,
-                                  style: IconButton.styleFrom(
-                                    minimumSize: const Size(48, 52),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  onPressed: _goToPrevious,
-                                  icon: const Icon(
-                                    Icons.arrow_back_rounded,
-                                    size: 20,
+                              IconButton.outlined(
+                                key: const Key('prev_question_btn'),
+                                tooltip: s.prevQuestion,
+                                style: IconButton.styleFrom(
+                                  minimumSize: const Size(48, 52),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                              ],
+                                onPressed: hasPrev ? _goToPrevious : null,
+                                icon: const Icon(
+                                  Icons.arrow_back_rounded,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               if (_evaluation == null) ...[
                                 IconButton.outlined(
                                   key: const Key('skip_question_btn'),
@@ -433,7 +451,9 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                                       borderRadius: BorderRadius.circular(14),
                                     ),
                                   ),
-                                  onPressed: _skipCurrentQuestion,
+                                  onPressed: hasNext
+                                      ? _skipCurrentQuestion
+                                      : null,
                                   icon: const Icon(
                                     Icons.arrow_forward_rounded,
                                     size: 20,
@@ -471,7 +491,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
                                     key: const Key('primary_practice_cta'),
                                     onPressed: _advanceToNext,
                                     child: Text(
-                                      _currentIndex + 1 >= _queueIds.length
+                                      !hasNext
                                           ? s.finishSession
                                           : s.nextQuestion,
                                       overflow: TextOverflow.ellipsis,
@@ -514,6 +534,7 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
     final scheme = Theme.of(context).colorScheme;
     final semantic = SemanticColors.of(context);
     final eval = _evaluation;
+    final displayedOptions = _displayedOptionsFor(q, _currentIndex);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -543,15 +564,18 @@ class _PracticePlayerScreenState extends State<PracticePlayerScreen> {
         ),
         const SizedBox(height: 16),
         if (q.inputKind == QuestionInputKind.multipleChoice)
-          for (var i = 0; i < q.options.length; i++) ...[
+          for (var i = 0; i < displayedOptions.length; i++) ...[
             if (i > 0) const SizedBox(height: 10),
             AnswerOptionCard(
-              option: q.options[i],
-              isSelected: _selectedLetters.contains(q.options[i].letter),
+              option: displayedOptions[i],
+              displayLetterOverride: QuestionOption.alphabeticalLabelForIndex(
+                i,
+              ),
+              isSelected: _selectedLetters.contains(displayedOptions[i].letter),
               strings: s,
-              feedbackState: eval?.optionStates[q.options[i].letter],
+              feedbackState: eval?.optionStates[displayedOptions[i].letter],
               onTap: eval == null
-                  ? () => _toggleOption(q.options[i].letter)
+                  ? () => _toggleOption(displayedOptions[i].letter)
                   : null,
             ),
           ]

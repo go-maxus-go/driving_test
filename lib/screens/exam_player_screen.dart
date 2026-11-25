@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:material_ui/material_ui.dart';
 
@@ -20,17 +21,23 @@ class ExamPlayerScreen extends StatefulWidget {
     required this.controller,
     this.onPracticeMistakes,
     this.enableNativeVideo = true,
+    this.random,
   });
 
   final AppController controller;
   final ValueChanged<PracticeLaunchRequest>? onPracticeMistakes;
   final bool enableNativeVideo;
+  final Random? random;
 
   @override
   State<ExamPlayerScreen> createState() => _ExamPlayerScreenState();
 }
 
 class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
+  late final Random _random;
+  String? _optionOrderSessionId;
+  final Map<String, List<String>> _optionOrderByQuestionId =
+      <String, List<String>>{};
   Timer? _countdownTimer;
   bool _hideTimerDigits = false;
   bool _submitting = false;
@@ -38,7 +45,27 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _random = widget.random ?? Random();
     _startTimer();
+  }
+
+  List<QuestionOption> _displayedOptionsFor(
+    ActiveExamSession exam,
+    Question q,
+  ) {
+    if (q.inputKind != QuestionInputKind.multipleChoice ||
+        q.options.length <= 1) {
+      return q.options;
+    }
+    if (_optionOrderSessionId != exam.sessionId) {
+      _optionOrderSessionId = exam.sessionId;
+      _optionOrderByQuestionId.clear();
+    }
+    final order = _optionOrderByQuestionId.putIfAbsent(
+      q.questionId,
+      () => q.shuffledOptionLetters(_random),
+    );
+    return q.orderedOptions(order);
   }
 
   void _startTimer() {
@@ -341,6 +368,7 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
           }
 
           final semantic = SemanticColors.of(context);
+          final displayedOptions = _displayedOptionsFor(exam, q);
 
           final isVideoPhaseOne =
               q.mediaKind == QuestionMediaKind.video &&
@@ -480,16 +508,20 @@ class _ExamPlayerScreenState extends State<ExamPlayerScreen> {
                         ),
                         const SizedBox(height: 16),
                         if (q.inputKind == QuestionInputKind.multipleChoice)
-                          for (var i = 0; i < q.options.length; i++) ...[
+                          for (var i = 0; i < displayedOptions.length; i++) ...[
                             if (i > 0) const SizedBox(height: 10),
                             AnswerOptionCard(
-                              option: q.options[i],
+                              option: displayedOptions[i],
+                              displayLetterOverride:
+                                  QuestionOption.alphabeticalLabelForIndex(i),
                               isSelected: submission.selectedLetters.contains(
-                                q.options[i].letter,
+                                displayedOptions[i].letter,
                               ),
                               strings: s,
-                              onTap: () =>
-                                  _toggleMcOption(q, q.options[i].letter),
+                              onTap: () => _toggleMcOption(
+                                q,
+                                displayedOptions[i].letter,
+                              ),
                             ),
                           ]
                         else
