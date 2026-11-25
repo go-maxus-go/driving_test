@@ -19,12 +19,12 @@ const SystemUiOverlayStyle _kFullscreenBlackOverlayStyle = SystemUiOverlayStyle(
   systemNavigationBarIconBrightness: Brightness.light,
 );
 
-/// Computes a new zoom transform at [scale] (default 3x) while keeping the
+/// Computes a new zoom transform at [scale] (default 2.5x) while keeping the
 /// exact scene point currently at the viewport center pinned to the center.
 Matrix4 computeCenterZoomMatrix({
   required Matrix4 currentMatrix,
   required Size viewportSize,
-  double scale = 3.0,
+  double scale = 2.5,
 }) {
   final currentScale = currentMatrix.getMaxScaleOnAxis();
   final safeCurrentScale = currentScale > 0 ? currentScale : 1.0;
@@ -790,11 +790,11 @@ void showImageZoomLightbox(
                       onDoubleTap: () {
                         final currentScale = transformCtrl.value
                             .getMaxScaleOnAxis();
-                        if (currentScale < 2.95) {
+                        if (currentScale < 2.45) {
                           transformCtrl.value = computeCenterZoomMatrix(
                             currentMatrix: transformCtrl.value,
                             viewportSize: viewportSize,
-                            scale: 3.0,
+                            scale: 2.5,
                           );
                         } else {
                           transformCtrl.value = Matrix4.identity();

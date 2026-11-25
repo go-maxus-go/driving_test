@@ -75,21 +75,21 @@ class _FakeVideoPlayerController extends VideoPlayerController {
 }
 
 void main() {
-  test('computeCenterZoomMatrix zooms to 3x while keeping the current screen center pinned', () {
+  test('computeCenterZoomMatrix zooms to 2.5x while keeping the current screen center pinned', () {
     const viewport = Size(400, 800);
 
-    // From identity (1x), center (200, 400) stays at (200, 400) after 3x zoom
+    // From identity (1x), center (200, 400) stays at (200, 400) after 2.5x zoom
     final fromIdentity = computeCenterZoomMatrix(
       currentMatrix: Matrix4.identity(),
       viewportSize: viewport,
     );
-    expect(fromIdentity.getMaxScaleOnAxis(), closeTo(3.0, 1e-6));
+    expect(fromIdentity.getMaxScaleOnAxis(), closeTo(2.5, 1e-6));
     expect(
-      3.0 * (viewport.width / 2) + fromIdentity.getTranslation().x,
+      2.5 * (viewport.width / 2) + fromIdentity.getTranslation().x,
       closeTo(viewport.width / 2, 1e-6),
     );
     expect(
-      3.0 * (viewport.height / 2) + fromIdentity.getTranslation().y,
+      2.5 * (viewport.height / 2) + fromIdentity.getTranslation().y,
       closeTo(viewport.height / 2, 1e-6),
     );
 
@@ -104,19 +104,19 @@ void main() {
       currentMatrix: panned,
       viewportSize: viewport,
     );
-    expect(zoomed.getMaxScaleOnAxis(), closeTo(3.0, 1e-6));
+    expect(zoomed.getMaxScaleOnAxis(), closeTo(2.5, 1e-6));
     expect(
-      3.0 * sceneCenterX + zoomed.getTranslation().x,
+      2.5 * sceneCenterX + zoomed.getTranslation().x,
       closeTo(viewport.width / 2, 1e-6),
     );
     expect(
-      3.0 * sceneCenterY + zoomed.getTranslation().y,
+      2.5 * sceneCenterY + zoomed.getTranslation().y,
       closeTo(viewport.height / 2, 1e-6),
     );
   });
 
   testWidgets(
-    'QuestionMediaStage matches theme background with no image border, zooms 3x around center, and sets black system bar in fullscreen',
+    'QuestionMediaStage matches theme background with no image border, zooms 2.5x around center, and sets black system bar in fullscreen',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(412, 915);
       tester.view.devicePixelRatio = 1.0;
@@ -208,7 +208,7 @@ void main() {
       expect(imgOverlay.value.statusBarColor, Colors.black);
       expect(imgOverlay.value.statusBarIconBrightness, Brightness.light);
 
-      // Double tap zooms to 3x centered on the current screen center
+      // Double tap zooms to 2.5x centered on the current screen center
       final viewer = tester.widget<InteractiveViewer>(
         find.byType(InteractiveViewer),
       );
@@ -229,13 +229,13 @@ void main() {
       await tester.pumpAndSettle();
 
       final matrix = viewer.transformationController!.value;
-      expect(matrix.getMaxScaleOnAxis(), closeTo(3.0, 1e-6));
+      expect(matrix.getMaxScaleOnAxis(), closeTo(2.5, 1e-6));
       expect(
-        3.0 * expectedSceneCenterX + matrix.getTranslation().x,
+        2.5 * expectedSceneCenterX + matrix.getTranslation().x,
         closeTo(viewerBox.width / 2, 1.0),
       );
       expect(
-        3.0 * expectedSceneCenterY + matrix.getTranslation().y,
+        2.5 * expectedSceneCenterY + matrix.getTranslation().y,
         closeTo(viewerBox.height / 2, 1.0),
       );
 
