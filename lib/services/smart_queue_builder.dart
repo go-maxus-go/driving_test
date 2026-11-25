@@ -9,6 +9,8 @@ enum PracticeFilterKind {
   leastAnswered,
   fivePointTraps,
   videoScenes,
+  imageScenes,
+  roadSigns,
   numericInput,
   savedBookmarks,
   topicSelection,

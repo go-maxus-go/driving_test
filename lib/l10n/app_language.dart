@@ -98,6 +98,12 @@ class AppStrings {
   String get drillVideos => isDe ? 'Videofragen' : 'Video Questions';
   String get drillVideosSub =>
       isDe ? 'Dynamische Verkehrsszenen' : 'Traffic hazard videos';
+  String get drillImages => isDe ? 'Bildfragen' : 'Image Questions';
+  String get drillImagesSub =>
+      isDe ? 'Verkehrssituationen im Bild' : 'Traffic scene pictures';
+  String get drillSigns => isDe ? 'Verkehrszeichen' : 'Sign Questions';
+  String get drillSignsSub =>
+      isDe ? 'Schilder & Markierungen' : 'Road signs & markings';
   String get drillNumeric => isDe ? 'Zahlenfragen' : 'Number Input';
   String get drillNumericSub =>
       isDe ? 'Formeln & Distanzen' : 'Formulas & distances';

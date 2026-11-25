@@ -59,7 +59,7 @@ CatalogRepository _sampleRepo({int count = 40, bool withMedia = false}) {
 
 void main() {
   testWidgets(
-    'AppShell provides clean burger menu drawer navigation, Formulas screen, Settings screen with configurable batch size (default 30), and About screen without bottom navigation bar',
+    'AppShell provides clean burger menu drawer navigation, Formulas screen, Settings screen with clean language titles & configurable batch size (default 30), and About screen without bottom navigation bar',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1.0;
@@ -117,6 +117,20 @@ void main() {
 
       expect(find.byType(SettingsScreen), findsOneWidget);
       expect(controller.practiceBatchSize, 30);
+
+      // Language options show clean titles only — no "(Default)" or "(Optional)" subtitles
+      expect(find.text('English'), findsOneWidget);
+      expect(find.text('Deutsch'), findsOneWidget);
+      expect(find.textContaining('Default)'), findsNothing);
+      expect(find.textContaining('Optional)'), findsNothing);
+      final enTile = tester.widget<RadioListTile<AppLanguage>>(
+        find.byKey(const Key('settings_lang_en')),
+      );
+      final deTile = tester.widget<RadioListTile<AppLanguage>>(
+        find.byKey(const Key('settings_lang_de')),
+      );
+      expect(enTile.subtitle, isNull);
+      expect(deTile.subtitle, isNull);
 
       // Select preset 15 batch size
       await tester.tap(find.byKey(const Key('settings_batch_size_15')));

@@ -292,6 +292,22 @@ class AppController extends ChangeNotifier {
     progressMap: _progressById,
   );
 
+  List<String> buildImageQueue() => SmartQueueBuilder.buildTopicQueue(
+    scopedQuestionIds: currentQuestions
+        .where((q) => q.isImageQuestion)
+        .map((q) => q.questionId),
+    questionsById: currentQuestionsById,
+    progressMap: _progressById,
+  );
+
+  List<String> buildSignQueue() => SmartQueueBuilder.buildTopicQueue(
+    scopedQuestionIds: currentQuestions
+        .where((q) => q.isSignQuestion)
+        .map((q) => q.questionId),
+    questionsById: currentQuestionsById,
+    progressMap: _progressById,
+  );
+
   List<String> buildNumericQueue() => SmartQueueBuilder.buildTopicQueue(
     scopedQuestionIds: currentQuestions
         .where((q) => q.inputKind == QuestionInputKind.numericInput)

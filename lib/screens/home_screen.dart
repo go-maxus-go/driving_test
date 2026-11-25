@@ -41,11 +41,13 @@ class HomeScreen extends StatelessWidget {
     final activeExam = controller.activeExam;
 
     final mistakesCount = controller.mostMistakesCount;
+    final savedIds = controller.buildSavedQueue();
     final leastCount = controller.leastAnsweredBadgeCount;
     final fivePtIds = controller.buildFivePointQueue();
     final videoIds = controller.buildVideoQueue();
+    final imageIds = controller.buildImageQueue();
+    final signIds = controller.buildSignQueue();
     final numericIds = controller.buildNumericQueue();
-    final savedIds = controller.buildSavedQueue();
 
     String? lastExamSummary;
     if (controller.examHistory.isNotEmpty) {
@@ -151,6 +153,23 @@ class HomeScreen extends StatelessWidget {
                     SizedBox(
                       width: cardWidth,
                       child: _DrillTileCard(
+                        key: const Key('drill_saved'),
+                        icon: Icons.bookmark_outline_rounded,
+                        accentColor: const Color(0xFFD97706),
+                        title: s.drillSaved,
+                        subtitle: s.drillSavedSub,
+                        count: savedIds.length,
+                        onTap: () => _launchIfNotEmpty(
+                          context,
+                          s,
+                          title: s.drillSaved,
+                          ids: savedIds,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _DrillTileCard(
                         key: const Key('drill_least_answered'),
                         icon: Icons.explore_outlined,
                         accentColor: Theme.of(context).colorScheme.primary,
@@ -202,6 +221,40 @@ class HomeScreen extends StatelessWidget {
                     SizedBox(
                       width: cardWidth,
                       child: _DrillTileCard(
+                        key: const Key('drill_images'),
+                        icon: Icons.image_outlined,
+                        accentColor: const Color(0xFF0D9488),
+                        title: s.drillImages,
+                        subtitle: s.drillImagesSub,
+                        count: imageIds.length,
+                        onTap: () => _launchIfNotEmpty(
+                          context,
+                          s,
+                          title: s.drillImages,
+                          ids: imageIds,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _DrillTileCard(
+                        key: const Key('drill_signs'),
+                        icon: Icons.traffic_outlined,
+                        accentColor: const Color(0xFFEA580C),
+                        title: s.drillSigns,
+                        subtitle: s.drillSignsSub,
+                        count: signIds.length,
+                        onTap: () => _launchIfNotEmpty(
+                          context,
+                          s,
+                          title: s.drillSigns,
+                          ids: signIds,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: cardWidth,
+                      child: _DrillTileCard(
                         key: const Key('drill_numeric'),
                         icon: Icons.pin_outlined,
                         accentColor: const Color(0xFF0284C7),
@@ -213,23 +266,6 @@ class HomeScreen extends StatelessWidget {
                           s,
                           title: s.drillNumeric,
                           ids: numericIds,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _DrillTileCard(
-                        key: const Key('drill_saved'),
-                        icon: Icons.bookmark_outline_rounded,
-                        accentColor: const Color(0xFFD97706),
-                        title: s.drillSaved,
-                        subtitle: s.drillSavedSub,
-                        count: savedIds.length,
-                        onTap: () => _launchIfNotEmpty(
-                          context,
-                          s,
-                          title: s.drillSaved,
-                          ids: savedIds,
                         ),
                       ),
                     ),

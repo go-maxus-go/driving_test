@@ -69,30 +69,28 @@ class SettingsScreen extends StatelessWidget {
                       onChanged: (val) {
                         if (val != null) controller.setLanguage(val);
                       },
-                      child: Column(
+                      child: const Column(
                         children: [
                           RadioListTile<AppLanguage>(
-                            key: const Key('settings_lang_en'),
-                            title: const Text(
+                            key: Key('settings_lang_en'),
+                            title: Text(
                               'English',
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
-                            subtitle: Text(s.welcomeLanguageEnglish),
-                            secondary: const Text(
+                            secondary: Text(
                               '🇬🇧',
                               style: TextStyle(fontSize: 22),
                             ),
                             value: AppLanguage.en,
                           ),
-                          const Divider(height: 1),
+                          Divider(height: 1),
                           RadioListTile<AppLanguage>(
-                            key: const Key('settings_lang_de'),
-                            title: const Text(
+                            key: Key('settings_lang_de'),
+                            title: Text(
                               'Deutsch',
                               style: TextStyle(fontWeight: FontWeight.w700),
                             ),
-                            subtitle: Text(s.welcomeLanguageGerman),
-                            secondary: const Text(
+                            secondary: Text(
                               '🇩🇪',
                               style: TextStyle(fontSize: 22),
                             ),
