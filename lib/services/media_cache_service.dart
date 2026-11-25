@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 
 import '../models/question.dart';
 import 'media_store.dart';
+import 'png_background_sanitizer.dart';
 
 typedef MediaByteFetcher = Future<Uint8List> Function(Uri uri);
 
@@ -268,11 +269,18 @@ class MediaCacheService extends ChangeNotifier {
     final remoteUrl = remoteUrlFor(normalized);
     final existingDisk = await store.readBytes(normalized, remoteUrl);
     if (existingDisk != null && existingDisk.isNotEmpty) {
-      _rememberImageBytes(normalized, existingDisk);
+      final sanitized = await sanitizeSignPngBackground(existingDisk);
+      if (_disposed) return null;
+      if (!identical(sanitized, existingDisk)) {
+        unawaited(
+          store.writeBytes(normalized, remoteUrl, sanitized).catchError((_) {}),
+        );
+      }
+      _rememberImageBytes(normalized, sanitized);
       if (_cachedPaths.add(normalized) && !_disposed) {
         notifyListeners();
       }
-      return existingDisk;
+      return sanitized;
     }
 
     _cachedPaths.remove(normalized);
@@ -284,7 +292,15 @@ class MediaCacheService extends ChangeNotifier {
 
     final loaded = await store.readBytes(normalized, remoteUrl);
     if (loaded != null && loaded.isNotEmpty) {
-      _rememberImageBytes(normalized, loaded);
+      final sanitized = await sanitizeSignPngBackground(loaded);
+      if (_disposed) return null;
+      if (!identical(sanitized, loaded)) {
+        unawaited(
+          store.writeBytes(normalized, remoteUrl, sanitized).catchError((_) {}),
+        );
+      }
+      _rememberImageBytes(normalized, sanitized);
+      return sanitized;
     }
     return loaded;
   }
@@ -407,7 +423,11 @@ class MediaCacheService extends ChangeNotifier {
   Future<bool> _performDownload(String normalizedPath) async {
     final remoteUrl = remoteUrlFor(normalizedPath);
     try {
-      final bytes = await _fetcher(Uri.parse(remoteUrl));
+      final rawBytes = await _fetcher(Uri.parse(remoteUrl));
+      if (_disposed || rawBytes.isEmpty) return false;
+      final bytes = _isImagePath(normalizedPath)
+          ? await sanitizeSignPngBackground(rawBytes)
+          : rawBytes;
       if (_disposed || bytes.isEmpty) return false;
       await store.writeBytes(normalizedPath, remoteUrl, bytes);
       if (_disposed) return false;
