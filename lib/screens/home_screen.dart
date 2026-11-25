@@ -60,6 +60,105 @@ class HomeScreen extends StatelessWidget {
           : 'Last: ${last.totalErrorPoints} Pts ($verdict)';
     }
 
+    final drillCards = <Widget>[
+      _DrillTileCard(
+        key: const Key('drill_most_mistakes'),
+        icon: Icons.error_outline_rounded,
+        accentColor: SemanticColors.of(context).wrongBorder,
+        title: s.drillMostMistakes,
+        subtitle: s.drillMostMistakesSub,
+        count: mistakesCount,
+        onTap: () => _launchIfNotEmpty(
+          context,
+          s,
+          title: s.drillMostMistakes,
+          ids: controller.buildMostMistakesQueue(),
+        ),
+      ),
+      _DrillTileCard(
+        key: const Key('drill_saved'),
+        icon: Icons.bookmark_outline_rounded,
+        accentColor: const Color(0xFFD97706),
+        title: s.drillSaved,
+        subtitle: s.drillSavedSub,
+        count: savedIds.length,
+        onTap: () =>
+            _launchIfNotEmpty(context, s, title: s.drillSaved, ids: savedIds),
+      ),
+      _DrillTileCard(
+        key: const Key('drill_least_answered'),
+        icon: Icons.explore_outlined,
+        accentColor: Theme.of(context).colorScheme.primary,
+        title: s.drillLeastAnswered,
+        subtitle: s.drillLeastAnsweredSub,
+        count: leastCount,
+        onTap: () => _launchIfNotEmpty(
+          context,
+          s,
+          title: s.drillLeastAnswered,
+          ids: controller.buildLeastAnsweredQueue(),
+        ),
+      ),
+      _DrillTileCard(
+        key: const Key('drill_five_point'),
+        icon: Icons.warning_amber_rounded,
+        accentColor: SemanticColors.of(context).missedBorder,
+        title: s.drillFivePoint,
+        subtitle: s.drillFivePointSub,
+        count: fivePtIds.length,
+        onTap: () => _launchIfNotEmpty(
+          context,
+          s,
+          title: s.drillFivePoint,
+          ids: fivePtIds,
+        ),
+      ),
+      _DrillTileCard(
+        key: const Key('drill_videos'),
+        icon: Icons.videocam_outlined,
+        accentColor: const Color(0xFF7C3AED),
+        title: s.drillVideos,
+        subtitle: s.drillVideosSub,
+        count: videoIds.length,
+        onTap: () =>
+            _launchIfNotEmpty(context, s, title: s.drillVideos, ids: videoIds),
+      ),
+      _DrillTileCard(
+        key: const Key('drill_images'),
+        icon: Icons.image_outlined,
+        accentColor: const Color(0xFF0D9488),
+        title: s.drillImages,
+        subtitle: s.drillImagesSub,
+        count: imageIds.length,
+        onTap: () =>
+            _launchIfNotEmpty(context, s, title: s.drillImages, ids: imageIds),
+      ),
+      _DrillTileCard(
+        key: const Key('drill_signs'),
+        icon: Icons.traffic_outlined,
+        accentColor: const Color(0xFFEA580C),
+        title: s.drillSigns,
+        subtitle: s.drillSignsSub,
+        count: signIds.length,
+        onTap: () =>
+            _launchIfNotEmpty(context, s, title: s.drillSigns, ids: signIds),
+      ),
+      _DrillTileCard(
+        key: const Key('drill_numeric'),
+        icon: Icons.pin_outlined,
+        accentColor: const Color(0xFF0284C7),
+        title: s.drillNumeric,
+        subtitle: s.drillNumericSub,
+        count: numericIds.length,
+        onTap: () => _launchIfNotEmpty(
+          context,
+          s,
+          title: s.drillNumeric,
+          ids: numericIds,
+        ),
+      ),
+    ];
+
     return Align(
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
@@ -126,149 +225,37 @@ class HomeScreen extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 final twoColumns = constraints.maxWidth >= 340;
-                final cardWidth = twoColumns
-                    ? (constraints.maxWidth - 12) / 2
-                    : constraints.maxWidth;
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                if (!twoColumns) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < drillCards.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 12),
+                        drillCards[i],
+                      ],
+                    ],
+                  );
+                }
+
+                return Column(
                   children: [
-                    SizedBox(
-                      width: cardWidth,
-                      child: _DrillTileCard(
-                        key: const Key('drill_most_mistakes'),
-                        icon: Icons.error_outline_rounded,
-                        accentColor: SemanticColors.of(context).wrongBorder,
-                        title: s.drillMostMistakes,
-                        subtitle: s.drillMostMistakesSub,
-                        count: mistakesCount,
-                        onTap: () => _launchIfNotEmpty(
-                          context,
-                          s,
-                          title: s.drillMostMistakes,
-                          ids: controller.buildMostMistakesQueue(),
+                    for (var i = 0; i < drillCards.length; i += 2) ...[
+                      if (i > 0) const SizedBox(height: 12),
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(child: drillCards[i]),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: i + 1 < drillCards.length
+                                  ? drillCards[i + 1]
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _DrillTileCard(
-                        key: const Key('drill_saved'),
-                        icon: Icons.bookmark_outline_rounded,
-                        accentColor: const Color(0xFFD97706),
-                        title: s.drillSaved,
-                        subtitle: s.drillSavedSub,
-                        count: savedIds.length,
-                        onTap: () => _launchIfNotEmpty(
-                          context,
-                          s,
-                          title: s.drillSaved,
-                          ids: savedIds,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _DrillTileCard(
-                        key: const Key('drill_least_answered'),
-                        icon: Icons.explore_outlined,
-                        accentColor: Theme.of(context).colorScheme.primary,
-                        title: s.drillLeastAnswered,
-                        subtitle: s.drillLeastAnsweredSub,
-                        count: leastCount,
-                        onTap: () => _launchIfNotEmpty(
-                          context,
-                          s,
-                          title: s.drillLeastAnswered,
-                          ids: controller.buildLeastAnsweredQueue(),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _DrillTileCard(
-                        key: const Key('drill_five_point'),
-                        icon: Icons.warning_amber_rounded,
-                        accentColor: SemanticColors.of(context).missedBorder,
-                        title: s.drillFivePoint,
-                        subtitle: s.drillFivePointSub,
-                        count: fivePtIds.length,
-                        onTap: () => _launchIfNotEmpty(
-                          context,
-                          s,
-                          title: s.drillFivePoint,
-                          ids: fivePtIds,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _DrillTileCard(
-                        key: const Key('drill_videos'),
-                        icon: Icons.videocam_outlined,
-                        accentColor: const Color(0xFF7C3AED),
-                        title: s.drillVideos,
-                        subtitle: s.drillVideosSub,
-                        count: videoIds.length,
-                        onTap: () => _launchIfNotEmpty(
-                          context,
-                          s,
-                          title: s.drillVideos,
-                          ids: videoIds,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _DrillTileCard(
-                        key: const Key('drill_images'),
-                        icon: Icons.image_outlined,
-                        accentColor: const Color(0xFF0D9488),
-                        title: s.drillImages,
-                        subtitle: s.drillImagesSub,
-                        count: imageIds.length,
-                        onTap: () => _launchIfNotEmpty(
-                          context,
-                          s,
-                          title: s.drillImages,
-                          ids: imageIds,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _DrillTileCard(
-                        key: const Key('drill_signs'),
-                        icon: Icons.traffic_outlined,
-                        accentColor: const Color(0xFFEA580C),
-                        title: s.drillSigns,
-                        subtitle: s.drillSignsSub,
-                        count: signIds.length,
-                        onTap: () => _launchIfNotEmpty(
-                          context,
-                          s,
-                          title: s.drillSigns,
-                          ids: signIds,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: cardWidth,
-                      child: _DrillTileCard(
-                        key: const Key('drill_numeric'),
-                        icon: Icons.pin_outlined,
-                        accentColor: const Color(0xFF0284C7),
-                        title: s.drillNumeric,
-                        subtitle: s.drillNumericSub,
-                        count: numericIds.length,
-                        onTap: () => _launchIfNotEmpty(
-                          context,
-                          s,
-                          title: s.drillNumeric,
-                          ids: numericIds,
-                        ),
-                      ),
-                    ),
+                    ],
                   ],
                 );
               },
@@ -568,6 +555,8 @@ class _DrillTileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final subtitleMinHeight =
+        MediaQuery.textScalerOf(context).scale(12 * 1.35) * 2;
 
     return Card(
       child: InkWell(
@@ -611,17 +600,26 @@ class _DrillTileCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 3),
-              Text(
-                subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ConstrainedBox(
+                constraints: BoxConstraints(minHeight: subtitleMinHeight),
+                child: Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
               ),
             ],
           ),

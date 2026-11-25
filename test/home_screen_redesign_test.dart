@@ -64,9 +64,9 @@ CatalogRepository _sampleRepo() {
 
 void main() {
   testWidgets(
-    'HomeScreen puts Saved in 2nd position and places Image & Sign Questions near Video Questions',
+    'HomeScreen puts Saved in 2nd position, places Image & Sign Questions near Video Questions, and gives all drill cards uniform height',
     (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(400, 1200);
+      tester.view.physicalSize = const Size(380, 1200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
@@ -142,16 +142,28 @@ void main() {
       expect(find.text('TARGETED DRILLS'), findsOneWidget);
       expect(find.textContaining('(1 TAP)'), findsNothing);
 
-      // 5. All 8 drills are Card widgets (not chips)
+      // 5. All 8 drills are Card widgets (not chips) and have IDENTICAL heights!
       expect(find.byType(ActionChip), findsNothing);
-      expect(find.byKey(const Key('drill_most_mistakes')), findsOneWidget);
-      expect(find.byKey(const Key('drill_saved')), findsOneWidget);
-      expect(find.byKey(const Key('drill_least_answered')), findsOneWidget);
-      expect(find.byKey(const Key('drill_five_point')), findsOneWidget);
-      expect(find.byKey(const Key('drill_videos')), findsOneWidget);
-      expect(find.byKey(const Key('drill_images')), findsOneWidget);
-      expect(find.byKey(const Key('drill_signs')), findsOneWidget);
-      expect(find.byKey(const Key('drill_numeric')), findsOneWidget);
+      const drillKeys = [
+        Key('drill_most_mistakes'),
+        Key('drill_saved'),
+        Key('drill_least_answered'),
+        Key('drill_five_point'),
+        Key('drill_videos'),
+        Key('drill_images'),
+        Key('drill_signs'),
+        Key('drill_numeric'),
+      ];
+      for (final key in drillKeys) {
+        expect(find.byKey(key), findsOneWidget);
+      }
+      final firstHeight = tester.getSize(find.byKey(drillKeys.first)).height;
+      for (final key in drillKeys.skip(1)) {
+        expect(
+          tester.getSize(find.byKey(key)).height,
+          closeTo(firstHeight, 0.5),
+        );
+      }
 
       // Saved is in the 2nd position (first row, right of Most Mistakes)
       final mistakesPos = tester.getTopLeft(
