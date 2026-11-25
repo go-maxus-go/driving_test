@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 class SemanticColors {
@@ -82,6 +83,11 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
       ),
       cardTheme: CardThemeData(
         color: const Color(0xFFFFFFFF),
@@ -121,6 +127,11 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+        ),
       ),
       cardTheme: CardThemeData(
         color: const Color(0xFF162032),

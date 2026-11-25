@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Android 12+ SplashScreen API branded blue launch screen (Night) -->
-    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowSplashScreenBackground">@color/launch_blue</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_car_icon</item>
-        <item name="android:windowFullscreen">true</item>
-        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:statusBarColor">@color/launch_blue</item>
+        <item name="android:navigationBarColor">@color/launch_blue</item>
     </style>
-    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
-        <item name="android:windowFullscreen">true</item>
-        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
     </style>
 </resources>

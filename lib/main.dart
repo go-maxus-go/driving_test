@@ -17,28 +17,21 @@ import 'widgets/app_loading_screen.dart';
 import 'widgets/first_launch_language_dialog.dart';
 import 'widgets/media_cache_scope.dart';
 
-bool get _isMobileFullscreenPlatform =>
+bool get _isMobilePlatform =>
     !kIsWeb &&
     (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS);
 
-Future<void> configureImmersiveFullscreen() async {
-  if (!_isMobileFullscreenPlatform) return;
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  await SystemChrome.setSystemUIChangeCallback((
-    systemOverlaysAreVisible,
-  ) async {
-    if (systemOverlaysAreVisible) {
-      await Future<void>.delayed(const Duration(seconds: 2));
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    }
-  });
+Future<void> configureSystemUi() async {
+  if (!_isMobilePlatform) return;
+  await SystemChrome.setSystemUIChangeCallback(null);
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 }
 
 void main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   binding.deferFirstFrame();
-  await configureImmersiveFullscreen();
+  await configureSystemUi();
 
   if (!kIsWeb) {
     try {

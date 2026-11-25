@@ -55,7 +55,7 @@ void main() {
   });
 
   testWidgets(
-    'configureImmersiveFullscreen activates immersiveSticky mode on Android and iOS only',
+    'configureSystemUi keeps the system status bar visible via edgeToEdge on Android and iOS',
     (WidgetTester tester) async {
       final calls = <MethodCall>[];
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -74,31 +74,35 @@ void main() {
       });
 
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-      await configureImmersiveFullscreen();
+      await configureSystemUi();
       expect(
         calls.where((c) => c.method == 'SystemChrome.setEnabledSystemUIMode'),
         isEmpty,
       );
 
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      await configureImmersiveFullscreen();
+      await configureSystemUi();
       expect(
         calls.any(
           (c) =>
               c.method == 'SystemChrome.setEnabledSystemUIMode' &&
-              c.arguments == 'SystemUiMode.immersiveSticky',
+              c.arguments == 'SystemUiMode.edgeToEdge',
         ),
         isTrue,
+      );
+      expect(
+        calls.any((c) => c.arguments == 'SystemUiMode.immersiveSticky'),
+        isFalse,
       );
 
       calls.clear();
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-      await configureImmersiveFullscreen();
+      await configureSystemUi();
       expect(
         calls.any(
           (c) =>
               c.method == 'SystemChrome.setEnabledSystemUIMode' &&
-              c.arguments == 'SystemUiMode.immersiveSticky',
+              c.arguments == 'SystemUiMode.edgeToEdge',
         ),
         isTrue,
       );
