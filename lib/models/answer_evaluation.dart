@@ -119,23 +119,20 @@ class AnswerEvaluator {
     );
   }
 
-  /// Compares numeric answers while normalizing German commas (`1,6`) and
-  /// English decimal dots (`1.6`).
+  /// Compares numeric answers as exact strings (only normalizing German commas
+  /// `,` and English decimal dots `.` and outer whitespace) so padded inputs
+  /// like `"0000"` or `"050"` are not accepted as `"0"` or `"50"`.
   static bool matchesNumeric({
     required String expected,
     required String actual,
   }) {
-    final normExpected = _normalizeDecimal(expected);
-    final normActual = _normalizeDecimal(actual);
-    if (normExpected == null || normActual == null) return false;
-    return (normExpected - normActual).abs() < 1e-9;
+    final normExpected = _normalizeNumericString(expected);
+    final normActual = _normalizeNumericString(actual);
+    if (normExpected.isEmpty || normActual.isEmpty) return false;
+    return normExpected == normActual;
   }
 
-  static double? _normalizeDecimal(String raw) {
-    final cleaned = raw.trim().replaceAll(',', '.');
-    if (cleaned.isEmpty) return null;
-    // Reject multiple decimal dots or non-numeric characters
-    if (!RegExp(r'^-?\d+(\.\d+)?$').hasMatch(cleaned)) return null;
-    return double.tryParse(cleaned);
+  static String _normalizeNumericString(String raw) {
+    return raw.trim().replaceAll(',', '.');
   }
 }

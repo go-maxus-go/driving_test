@@ -92,7 +92,7 @@ void main() {
     });
   });
 
-  group('AnswerEvaluator 4-state & comma/dot numeric rules', () {
+  group('AnswerEvaluator 4-state & strict string numeric rules', () {
     final mcQuestion = Question.fromJson({
       'theme_number': 'Theme 1.1.',
       'theme_name': 'Danger Teaching',
@@ -145,7 +145,7 @@ void main() {
       expect(result.optionStates['C'], OptionFeedbackState.selectedWrong);
     });
 
-    test('numeric input normalizes German commas and English dots', () {
+    test('numeric input compares strictly as strings while allowing comma/dot decimal separator', () {
       final numQuestion = Question.fromJson({
         'theme_number': 'Thema 2.7.',
         'theme_name': 'Technik',
@@ -165,6 +165,25 @@ void main() {
         'local_video_paths': <String>[],
       });
 
+      final zeroQuestion = Question.fromJson({
+        'theme_number': 'Thema 1.1.',
+        'theme_name': 'Grundregeln',
+        'chapter_number': '1.1.01 Kapitel',
+        'chapter_name': 'Alkohol',
+        'question_id': '1.1.01-050',
+        'question_number': '1.1.01-050',
+        'points': '4 Punkte',
+        'licenses': ['Basic material'],
+        'question_text': 'Promillegrenze in der Probezeit?',
+        'options': <Map<String, dynamic>>[],
+        'correct_answers': [
+          {'letter': '0', 'text': ''},
+        ],
+        'comment': '0,0 Promille.',
+        'local_image_paths': <String>[],
+        'local_video_paths': <String>[],
+      });
+
       expect(
         AnswerEvaluator.evaluate(
           numQuestion,
@@ -178,6 +197,44 @@ void main() {
           const AnswerSubmission(numericText: ' 1.6 '),
         ).isCorrect,
         isTrue,
+      );
+      // Reject leading/trailing zero padding under strict string comparison
+      expect(
+        AnswerEvaluator.evaluate(
+          numQuestion,
+          const AnswerSubmission(numericText: '01.6'),
+        ).isCorrect,
+        isFalse,
+      );
+      expect(
+        AnswerEvaluator.evaluate(
+          numQuestion,
+          const AnswerSubmission(numericText: '1.60'),
+        ).isCorrect,
+        isFalse,
+      );
+
+      // Reject '0000' for '0'
+      expect(
+        AnswerEvaluator.evaluate(
+          zeroQuestion,
+          const AnswerSubmission(numericText: '0'),
+        ).isCorrect,
+        isTrue,
+      );
+      expect(
+        AnswerEvaluator.evaluate(
+          zeroQuestion,
+          const AnswerSubmission(numericText: '0000'),
+        ).isCorrect,
+        isFalse,
+      );
+      expect(
+        AnswerEvaluator.evaluate(
+          zeroQuestion,
+          const AnswerSubmission(numericText: '0.0'),
+        ).isCorrect,
+        isFalse,
       );
 
       final wrong = AnswerEvaluator.evaluate(

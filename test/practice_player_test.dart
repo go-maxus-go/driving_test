@@ -57,7 +57,7 @@ CatalogRepository _buildPlayerTestRepo() {
 
 void main() {
   testWidgets(
-    'PracticePlayer uses icon buttons for Skip (right arrow) & Retry, auto-expands explanation, and shows Continue practice / Back to Menu on completion',
+    'PracticePlayer uses icon buttons for Skip (right arrow) & Retry, auto-expands explanation, keeps numeric keypad stable on input, and shows Continue practice / Back to Menu on completion',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(412, 915);
       tester.view.devicePixelRatio = 1.0;
@@ -199,9 +199,28 @@ void main() {
       await tester.tap(find.byKey(const Key('skip_question_btn')));
       await tester.pump();
 
-      // Enter 1.6 on custom numpad
+      // Measure display box height & numpad position BEFORE entering first digit
+      final boxHeightBefore = tester
+          .getSize(find.byKey(const Key('numeric_display_box')))
+          .height;
+      final keypadTopBefore = tester
+          .getTopLeft(find.byKey(const Key('numpad_key_1')))
+          .dy;
+
+      // Enter first digit '1' -> display box height and keypad position must NOT jump!
       await tester.tap(find.byKey(const Key('numpad_key_1')));
       await tester.pump();
+
+      final boxHeightAfter = tester
+          .getSize(find.byKey(const Key('numeric_display_box')))
+          .height;
+      final keypadTopAfter = tester
+          .getTopLeft(find.byKey(const Key('numpad_key_1')))
+          .dy;
+      expect(boxHeightAfter, boxHeightBefore);
+      expect(keypadTopAfter, keypadTopBefore);
+
+      // Finish entering 1.6 on custom numpad
       await tester.tap(find.byKey(const Key('numpad_key_decimal')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('numpad_key_6')));

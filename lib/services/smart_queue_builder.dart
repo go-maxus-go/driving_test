@@ -22,10 +22,9 @@ class SmartQueueBuilder {
   static const int minBatchSize = 1;
   static const int maxBatchSize = 200;
 
-  /// Builds an adaptive Smart Practice sprint (defaulting to 30 questions to
-  /// match the official exam length):
-  /// ~35% unrecovered/frequent mistakes, ~45% unseen/least-answered across
-  /// diverse themes, and ~20% spaced review of earlier correct questions.
+  /// Builds a varied Practice sprint (defaulting to 30 questions to match the
+  /// official exam length) combining previously unseen questions with a fresh
+  /// mix of previous mistakes, shuffled so sessions don't feel repetitive.
   static List<String> buildSmartPractice({
     required List<Question> allQuestions,
     required Map<String, QuestionProgress> progressMap,
@@ -37,28 +36,40 @@ class SmartQueueBuilder {
     final target = min(clampedBatch, allQuestions.length);
     if (target == 0) return const [];
 
-    final mistakes = buildMostMistakes(
-      allQuestions: allQuestions,
-      progressMap: progressMap,
-    );
-    final unseenOrLow = buildLeastAnswered(
-      allQuestions: allQuestions,
-      progressMap: progressMap,
-      random: rng,
-    );
-    final reviewCandidates =
-        allQuestions.where((q) {
-          final p = progressMap[q.questionId];
-          return p != null && p.attemptsCount > 0 && p.lastWasCorrect;
-        }).toList()..sort((a, b) {
-          final pa = progressMap[a.questionId]!;
-          final pb = progressMap[b.questionId]!;
-          final streakCmp = pa.consecutiveCorrect.compareTo(
-            pb.consecutiveCorrect,
-          );
-          if (streakCmp != 0) return streakCmp;
-          return pa.lastAnsweredAtMs.compareTo(pb.lastAnsweredAtMs);
-        });
+    // 1. Unseen questions (0 attempts), shuffled randomly every session.
+    final unseen =
+        allQuestions
+            .where((q) => (progressMap[q.questionId]?.attemptsCount ?? 0) == 0)
+            .map((q) => q.questionId)
+            .toList()
+          ..shuffle(rng);
+
+    // 2. Previous mistakes: prioritize active/unrecovered mistakes first,
+    //    shuffling within each tier so the learner doesn't see the exact same
+    //    ordered block every time.
+    final activeMistakes = <String>[];
+    final unrecoveredMistakes = <String>[];
+    final olderMistakes = <String>[];
+    for (final q in allQuestions) {
+      final p = progressMap[q.questionId];
+      if (p == null || p.wrongCount <= 0) continue;
+      if (!p.lastWasCorrect) {
+        activeMistakes.add(q.questionId);
+      } else if (p.needsRecovery) {
+        unrecoveredMistakes.add(q.questionId);
+      } else {
+        olderMistakes.add(q.questionId);
+      }
+    }
+    activeMistakes.shuffle(rng);
+    unrecoveredMistakes.shuffle(rng);
+    olderMistakes.shuffle(rng);
+
+    final prioritizedMistakes = <String>[
+      ...activeMistakes,
+      ...unrecoveredMistakes,
+      ...olderMistakes,
+    ];
 
     final chosen = <String>[];
     final chosenSet = <String>{};
@@ -74,19 +85,33 @@ class SmartQueueBuilder {
       }
     }
 
-    final mistakeQuota = (target * 0.35).round();
-    final unseenQuota = (target * 0.45).round();
-    final reviewQuota = max(0, target - mistakeQuota - unseenQuota);
+    // Mix ~30% previous mistakes with ~70% unseen questions so every session
+    // feels fresh while steadily reinforcing past mistakes.
+    final maxMistakes = target <= 1
+        ? (unseen.isEmpty ? 1 : 0)
+        : (target * 0.30).round().clamp(1, target - 1);
+    final mistakeQuota = min(prioritizedMistakes.length, maxMistakes);
+    final unseenQuota = target - mistakeQuota;
 
-    takeFrom(mistakes, mistakeQuota);
-    takeFrom(unseenQuota > 0 ? unseenOrLow : const [], unseenQuota);
-    takeFrom(reviewCandidates.map((q) => q.questionId), reviewQuota);
+    takeFrom(unseen, unseenQuota);
+    takeFrom(prioritizedMistakes, mistakeQuota);
 
-    // Top up remaining slots from least-answered so we always deliver a full batch
+    // If unseen questions ran short, pull more mistakes before falling back
+    // to least-answered / spaced review.
     if (chosen.length < target) {
-      takeFrom(unseenOrLow, target - chosen.length);
+      takeFrom(prioritizedMistakes, target - chosen.length);
+    }
+    if (chosen.length < target) {
+      final leastAnswered = buildLeastAnswered(
+        allQuestions: allQuestions,
+        progressMap: progressMap,
+        random: rng,
+      );
+      takeFrom(leastAnswered, target - chosen.length);
     }
 
+    // Interleave unseen questions and previous mistakes throughout the session.
+    chosen.shuffle(rng);
     return chosen;
   }
 

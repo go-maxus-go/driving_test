@@ -60,17 +60,21 @@ class ErgonomicNumericKeypad extends StatelessWidget {
       children: [
         Container(
           key: const Key('numeric_display_box'),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
           decoration: BoxDecoration(
             color: boxBg,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: boxBorder, width: 2),
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Text(
                   value.isEmpty ? strings.numericInputHint : value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: value.isEmpty ? 15 : 24,
                     fontWeight: value.isEmpty
@@ -82,21 +86,34 @@ class ErgonomicNumericKeypad extends StatelessWidget {
                   ),
                 ),
               ),
-              if (!isSubmitted && value.isNotEmpty)
-                IconButton(
-                  key: const Key('numeric_clear_btn'),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _clear,
-                  icon: const Icon(Icons.clear_rounded),
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: Center(
+                  child: !isSubmitted && value.isNotEmpty
+                      ? IconButton(
+                          key: const Key('numeric_clear_btn'),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 40,
+                            height: 40,
+                          ),
+                          onPressed: _clear,
+                          icon: const Icon(Icons.clear_rounded),
+                        )
+                      : isSubmitted
+                      ? Icon(
+                          isCorrect
+                              ? Icons.check_circle_rounded
+                              : Icons.cancel_rounded,
+                          color: isCorrect
+                              ? semantic.correctBorder
+                              : semantic.wrongBorder,
+                          size: 28,
+                        )
+                      : null,
                 ),
-              if (isSubmitted)
-                Icon(
-                  isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                  color: isCorrect
-                      ? semantic.correctBorder
-                      : semantic.wrongBorder,
-                  size: 28,
-                ),
+              ),
             ],
           ),
         ),

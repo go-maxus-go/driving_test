@@ -104,6 +104,62 @@ void main() {
       },
     );
 
+    test('Smart Practice mixes unseen questions and previous mistakes without repeating already-correct questions while unseen remain', () async {
+      final controller = AppController(
+        catalog: _buildSyntheticCatalog(),
+        storage: InMemoryProgressStorage(),
+      );
+      final all = controller.currentQuestions;
+
+      // Mark 6 questions as mistakes and 8 questions as already answered correctly
+      final mistakeIds = <String>{};
+      final correctOnlyIds = <String>{};
+      for (var i = 0; i < 6; i++) {
+        mistakeIds.add(all[i].questionId);
+        await controller.recordPracticeAnswer(
+          question: all[i],
+          submission: const AnswerSubmission(selectedLetters: {'B'}),
+        );
+      }
+      for (var i = 6; i < 14; i++) {
+        correctOnlyIds.add(all[i].questionId);
+        await controller.recordPracticeAnswer(
+          question: all[i],
+          submission: const AnswerSubmission(selectedLetters: {'A'}),
+        );
+      }
+      // Remaining 26 questions are unseen
+
+      final batch1 = controller.buildSmartPracticeQueue(
+        batchSize: 20,
+        random: Random(11),
+      );
+      final batch2 = controller.buildSmartPracticeQueue(
+        batchSize: 20,
+        random: Random(99),
+      );
+
+      expect(batch1.length, 20);
+      expect(batch1.toSet().length, 20);
+
+      final unseenInBatch1 = batch1
+          .where((id) => controller.progressFor(id).attemptsCount == 0)
+          .toList();
+      final mistakesInBatch1 = batch1.where(mistakeIds.contains).toList();
+      final repeatedCorrectInBatch1 = batch1
+          .where(correctOnlyIds.contains)
+          .toList();
+
+      // Must include BOTH unseen questions (majority) and previous mistakes,
+      // and not waste slots on already-correct questions while unseen remain.
+      expect(unseenInBatch1.length, 14);
+      expect(mistakesInBatch1.length, 6);
+      expect(repeatedCorrectInBatch1, isEmpty);
+
+      // Two runs with different RNG seeds should not produce the exact same order
+      expect(batch1, isNot(equals(batch2)));
+    });
+
     test('tracks progress across language switches and orders Most Mistakes & Least Answered', () async {
       var now = 1000;
       final controller = AppController(
