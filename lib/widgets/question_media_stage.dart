@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:video_player/video_player.dart';
 
@@ -10,21 +11,37 @@ import '../theme/app_theme.dart';
 import 'cached_asset_image.dart';
 import 'media_cache_scope.dart';
 
-Matrix4 computeDoubleTapZoomMatrix({
-  required Offset tapPosition,
+const SystemUiOverlayStyle _kFullscreenBlackOverlayStyle = SystemUiOverlayStyle(
+  statusBarColor: Colors.black,
+  statusBarIconBrightness: Brightness.light,
+  statusBarBrightness: Brightness.dark,
+  systemNavigationBarColor: Colors.black,
+  systemNavigationBarIconBrightness: Brightness.light,
+);
+
+/// Computes a new zoom transform at [scale] (default 3x) while keeping the
+/// exact scene point currently at the viewport center pinned to the center.
+Matrix4 computeCenterZoomMatrix({
+  required Matrix4 currentMatrix,
   required Size viewportSize,
-  double scale = 2.0,
+  double scale = 3.0,
 }) {
+  final currentScale = currentMatrix.getMaxScaleOnAxis();
+  final safeCurrentScale = currentScale > 0 ? currentScale : 1.0;
+  final currentTranslation = currentMatrix.getTranslation();
+
+  final centerX = viewportSize.width / 2.0;
+  final centerY = viewportSize.height / 2.0;
+
+  // Map viewport center back into scene coordinates under the current transform.
+  final sceneCenterX = (centerX - currentTranslation.x) / safeCurrentScale;
+  final sceneCenterY = (centerY - currentTranslation.y) / safeCurrentScale;
+
   final minDx = -(scale - 1.0) * viewportSize.width;
   final minDy = -(scale - 1.0) * viewportSize.height;
-  final dx = (viewportSize.width / 2.0 - scale * tapPosition.dx).clamp(
-    minDx,
-    0.0,
-  );
-  final dy = (viewportSize.height / 2.0 - scale * tapPosition.dy).clamp(
-    minDy,
-    0.0,
-  );
+  final dx = (centerX - scale * sceneCenterX).clamp(minDx, 0.0);
+  final dy = (centerY - scale * sceneCenterY).clamp(minDy, 0.0);
+
   return Matrix4.diagonal3Values(scale, scale, 1.0)
     ..setTranslationRaw(dx, dy, 0.0);
 }
@@ -116,7 +133,7 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     }
 
     if (!oldWidget.isAnswered && widget.isAnswered) {
-      unawaited(_stopAtFirstFrame());
+      unawaited(_pauseIfPlaying());
     } else if (oldWidget.isAnswered && !widget.isAnswered) {
       unawaited(_replayClip());
     }
@@ -128,13 +145,14 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     }
   }
 
-  Future<void> _stopAtFirstFrame() async {
+  Future<void> _pauseIfPlaying() async {
     final ctrl = _videoController;
     if (ctrl == null || !_videoReady) return;
-    await ctrl.pause();
-    await ctrl.seekTo(Duration.zero);
-    if (mounted) {
-      setState(_bumpRevision);
+    if (ctrl.value.isPlaying) {
+      await ctrl.pause();
+      if (mounted) {
+        setState(_bumpRevision);
+      }
     }
   }
 
@@ -323,79 +341,85 @@ class _QuestionMediaStageState extends State<QuestionMediaStage> {
     final img = widget.question.primaryImageAsset;
     showDialog<void>(
       context: context,
-      builder: (ctx) => Dialog.fullscreen(
-        backgroundColor: Colors.black,
-        child: SafeArea(
-          child: ValueListenableBuilder<int>(
-            valueListenable: _stageRevision,
-            builder: (context, _, _) {
-              final ctrl = _videoController;
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  GestureDetector(
-                    key: const Key('fullscreen_video_tap_area'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _handleVideoSurfaceTap,
-                    child: Center(
-                      child: AspectRatio(
-                        aspectRatio: 16 / 9,
-                        child: _videoReady && ctrl != null
-                            ? VideoPlayer(ctrl)
-                            : _videoLoading
-                            ? const Center(
-                                child: SizedBox(
-                                  width: 34,
-                                  height: 34,
-                                  child: CircularProgressIndicator(
-                                    key: Key(
-                                      'fullscreen_video_loading_indicator',
-                                    ),
-                                    color: Colors.white,
-                                    strokeWidth: 2.8,
-                                  ),
-                                ),
-                              )
-                            : (img != null
-                                  ? CachedAssetImage(
-                                      assetPath: img,
-                                      mediaCache: cache,
-                                      fit: BoxFit.contain,
-                                    )
-                                  : const Center(
-                                      child: Icon(
-                                        Icons.videocam_outlined,
-                                        color: Colors.white54,
-                                        size: 48,
+      useSafeArea: false,
+      barrierColor: Colors.black,
+      builder: (ctx) => AnnotatedRegion<SystemUiOverlayStyle>(
+        key: const Key('fullscreen_video_overlay_region'),
+        value: _kFullscreenBlackOverlayStyle,
+        child: Dialog.fullscreen(
+          backgroundColor: Colors.black,
+          child: SafeArea(
+            child: ValueListenableBuilder<int>(
+              valueListenable: _stageRevision,
+              builder: (context, _, _) {
+                final ctrl = _videoController;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    GestureDetector(
+                      key: const Key('fullscreen_video_tap_area'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _handleVideoSurfaceTap,
+                      child: Center(
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: _videoReady && ctrl != null
+                              ? VideoPlayer(ctrl)
+                              : _videoLoading
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 34,
+                                    height: 34,
+                                    child: CircularProgressIndicator(
+                                      key: Key(
+                                        'fullscreen_video_loading_indicator',
                                       ),
-                                    )),
+                                      color: Colors.white,
+                                      strokeWidth: 2.8,
+                                    ),
+                                  ),
+                                )
+                              : (img != null
+                                    ? CachedAssetImage(
+                                        assetPath: img,
+                                        mediaCache: cache,
+                                        fit: BoxFit.contain,
+                                      )
+                                    : const Center(
+                                        child: Icon(
+                                          Icons.videocam_outlined,
+                                          color: Colors.white54,
+                                          size: 48,
+                                        ),
+                                      )),
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    child: _SubtleFullscreenIconButton(
-                      buttonKey: const Key('replay_fullscreen_video_btn'),
-                      icon: Icons.replay_rounded,
-                      tooltip: widget.strings.replayVideo,
-                      onPressed: !_videoLoading && _canReplay
-                          ? _replayClip
-                          : null,
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      child: _SubtleFullscreenIconButton(
+                        buttonKey: const Key('replay_fullscreen_video_btn'),
+                        icon: Icons.replay_rounded,
+                        tooltip: widget.strings.replayVideo,
+                        onPressed: !_videoLoading && _canReplay
+                            ? _replayClip
+                            : null,
+                      ),
                     ),
-                  ),
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: _SubtleFullscreenIconButton(
-                      buttonKey: const Key('close_fullscreen_video_btn'),
-                      icon: Icons.close_rounded,
-                      onPressed: () => Navigator.of(ctx).pop(),
+                    Positioned(
+                      top: 16,
+                      right: 16,
+                      child: _SubtleFullscreenIconButton(
+                        buttonKey: const Key('close_fullscreen_video_btn'),
+                        icon: Icons.close_rounded,
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
                     ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -634,7 +658,7 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final semantic = SemanticColors.of(context);
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
     return GestureDetector(
       key: const Key('question_image_tap_area'),
       onTap: () => showImageZoomLightbox(
@@ -647,9 +671,8 @@ class _StaticOrFreezeImageCard extends StatelessWidget {
         constraints: const BoxConstraints(maxHeight: 240),
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: bgColor,
           borderRadius: BorderRadius.zero,
-          border: Border.all(color: semantic.subtleBorder),
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -743,87 +766,86 @@ void showImageZoomLightbox(
   final effectiveCache = mediaCache ?? MediaCacheScope.maybeOf(context);
   showDialog<void>(
     context: context,
+    useSafeArea: false,
+    barrierColor: Colors.black,
     builder: (ctx) {
       final transformCtrl = TransformationController();
-      TapDownDetails? doubleTapDetails;
-      return Dialog.fullscreen(
-        backgroundColor: Colors.black,
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final viewportSize = Size(
-                constraints.maxWidth,
-                constraints.maxHeight,
-              );
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  GestureDetector(
-                    key: const Key('lightbox_double_tap_area'),
-                    onDoubleTapDown: (details) {
-                      doubleTapDetails = details;
-                    },
-                    onDoubleTap: () {
-                      if (transformCtrl.value.isIdentity()) {
-                        final tapPos =
-                            doubleTapDetails?.localPosition ??
-                            Offset(
-                              viewportSize.width / 2,
-                              viewportSize.height / 2,
-                            );
-                        transformCtrl.value = computeDoubleTapZoomMatrix(
-                          tapPosition: tapPos,
-                          viewportSize: viewportSize,
-                        );
-                      } else {
-                        transformCtrl.value = Matrix4.identity();
-                      }
-                    },
-                    child: InteractiveViewer(
-                      transformationController: transformCtrl,
-                      minScale: 0.8,
-                      maxScale: 4.5,
-                      child: SizedBox(
-                        width: viewportSize.width,
-                        height: viewportSize.height,
-                        child: Center(
-                          child: Container(
-                            key: const Key('lightbox_image_surface'),
-                            constraints: const BoxConstraints(
-                              minWidth: 120,
-                              minHeight: 120,
-                            ),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.zero,
-                            ),
-                            child: CachedAssetImage(
-                              assetPath: imageAssetPath,
-                              mediaCache: effectiveCache,
-                              fit: BoxFit.contain,
-                              loadingKey: const Key(
-                                'lightbox_loading_indicator',
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        key: const Key('fullscreen_image_overlay_region'),
+        value: _kFullscreenBlackOverlayStyle,
+        child: Dialog.fullscreen(
+          backgroundColor: Colors.black,
+          child: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final viewportSize = Size(
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                );
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    GestureDetector(
+                      key: const Key('lightbox_double_tap_area'),
+                      onDoubleTap: () {
+                        final currentScale = transformCtrl.value
+                            .getMaxScaleOnAxis();
+                        if (currentScale < 2.95) {
+                          transformCtrl.value = computeCenterZoomMatrix(
+                            currentMatrix: transformCtrl.value,
+                            viewportSize: viewportSize,
+                            scale: 3.0,
+                          );
+                        } else {
+                          transformCtrl.value = Matrix4.identity();
+                        }
+                      },
+                      child: InteractiveViewer(
+                        transformationController: transformCtrl,
+                        minScale: 0.8,
+                        maxScale: 5.0,
+                        child: SizedBox(
+                          width: viewportSize.width,
+                          height: viewportSize.height,
+                          child: Center(
+                            child: Container(
+                              key: const Key('lightbox_image_surface'),
+                              constraints: const BoxConstraints(
+                                minWidth: 120,
+                                minHeight: 120,
                               ),
-                              fallbackIcon: Icons.broken_image_outlined,
-                              fallbackIconSize: 48,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.zero,
+                              ),
+                              child: CachedAssetImage(
+                                assetPath: imageAssetPath,
+                                mediaCache: effectiveCache,
+                                fit: BoxFit.contain,
+                                loadingKey: const Key(
+                                  'lightbox_loading_indicator',
+                                ),
+                                fallbackIcon: Icons.broken_image_outlined,
+                                fallbackIconSize: 48,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: _SubtleFullscreenIconButton(
-                      buttonKey: const Key('close_lightbox_btn'),
-                      icon: Icons.close_rounded,
-                      onPressed: () => Navigator.of(ctx).pop(),
+                    Positioned(
+                      top: 16,
+                      right: 16,
+                      child: _SubtleFullscreenIconButton(
+                        buttonKey: const Key('close_lightbox_btn'),
+                        icon: Icons.close_rounded,
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
                     ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
           ),
         ),
       );

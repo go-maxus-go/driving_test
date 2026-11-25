@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:driving_exam/l10n/app_language.dart';
 import 'package:driving_exam/models/question.dart';
@@ -10,6 +9,7 @@ import 'package:driving_exam/theme/app_theme.dart';
 import 'package:driving_exam/widgets/answer_option_card.dart';
 import 'package:driving_exam/widgets/media_cache_scope.dart';
 import 'package:driving_exam/widgets/question_media_stage.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:video_player/video_player.dart';
@@ -75,26 +75,48 @@ class _FakeVideoPlayerController extends VideoPlayerController {
 }
 
 void main() {
-  test(
-    'computeDoubleTapZoomMatrix centers the tapped point inside the viewport',
-    () {
-      const viewport = Size(400, 800);
-      const tapped = Offset(260, 500);
-      final matrix = computeDoubleTapZoomMatrix(
-        tapPosition: tapped,
-        viewportSize: viewport,
-      );
+  test('computeCenterZoomMatrix zooms to 3x while keeping the current screen center pinned', () {
+    const viewport = Size(400, 800);
 
-      expect(matrix.getMaxScaleOnAxis(), closeTo(2.0, 1e-6));
-      final tx = matrix.getTranslation().x;
-      final ty = matrix.getTranslation().y;
-      expect(2.0 * tapped.dx + tx, closeTo(viewport.width / 2, 1e-6));
-      expect(2.0 * tapped.dy + ty, closeTo(viewport.height / 2, 1e-6));
-    },
-  );
+    // From identity (1x), center (200, 400) stays at (200, 400) after 3x zoom
+    final fromIdentity = computeCenterZoomMatrix(
+      currentMatrix: Matrix4.identity(),
+      viewportSize: viewport,
+    );
+    expect(fromIdentity.getMaxScaleOnAxis(), closeTo(3.0, 1e-6));
+    expect(
+      3.0 * (viewport.width / 2) + fromIdentity.getTranslation().x,
+      closeTo(viewport.width / 2, 1e-6),
+    );
+    expect(
+      3.0 * (viewport.height / 2) + fromIdentity.getTranslation().y,
+      closeTo(viewport.height / 2, 1e-6),
+    );
+
+    // From a panned & zoomed state (1.5x, translated by -120, -180):
+    // Scene point at viewport center (200, 400) is ((200+120)/1.5, (400+180)/1.5)
+    final panned = Matrix4.diagonal3Values(1.5, 1.5, 1.0)
+      ..setTranslationRaw(-120.0, -180.0, 0.0);
+    final sceneCenterX = (viewport.width / 2 - (-120.0)) / 1.5;
+    final sceneCenterY = (viewport.height / 2 - (-180.0)) / 1.5;
+
+    final zoomed = computeCenterZoomMatrix(
+      currentMatrix: panned,
+      viewportSize: viewport,
+    );
+    expect(zoomed.getMaxScaleOnAxis(), closeTo(3.0, 1e-6));
+    expect(
+      3.0 * sceneCenterX + zoomed.getTranslation().x,
+      closeTo(viewport.width / 2, 1e-6),
+    );
+    expect(
+      3.0 * sceneCenterY + zoomed.getTranslation().y,
+      closeTo(viewport.height / 2, 1e-6),
+    );
+  });
 
   testWidgets(
-    'QuestionMediaStage uses square cards, replays video on tap when stopped at end, and renders top-left fullscreen replay button',
+    'QuestionMediaStage matches theme background with no image border, zooms 3x around center, and sets black system bar in fullscreen',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(412, 915);
       tester.view.devicePixelRatio = 1.0;
@@ -135,11 +157,13 @@ void main() {
       });
 
       final strings = AppStrings(AppLanguage.en);
+      final lightTheme = AppTheme.light();
+      final darkTheme = AppTheme.dark();
 
-      // 1. Image media stage: white square-cornered surface, no overlay zoom icon
+      // 1a. Light mode image stage: matches scaffoldBackgroundColor, no border, no overlay zoom icon
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light(),
+          theme: lightTheme,
           home: Scaffold(
             body: QuestionMediaStage(question: imageQuestion, strings: strings),
           ),
@@ -147,45 +171,82 @@ void main() {
       );
 
       expect(find.byIcon(Icons.zoom_in_rounded), findsNothing);
-      final inlineSurface = tester.widget<Container>(
+      final lightInlineSurface = tester.widget<Container>(
         find.byKey(const Key('question_image_surface')),
       );
-      final inlineDeco = inlineSurface.decoration! as BoxDecoration;
-      expect(inlineDeco.color, Colors.white);
-      expect(inlineDeco.borderRadius, BorderRadius.zero);
+      final lightDeco = lightInlineSurface.decoration! as BoxDecoration;
+      expect(lightDeco.color, lightTheme.scaffoldBackgroundColor);
+      expect(lightDeco.border, isNull);
+      expect(lightDeco.borderRadius, BorderRadius.zero);
 
-      // Tapping the image opens the full-screen zoom lightbox
+      // 1b. Dark mode image stage: matches dark scaffoldBackgroundColor and still has no border
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: darkTheme,
+          home: Scaffold(
+            body: QuestionMediaStage(question: imageQuestion, strings: strings),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final darkInlineSurface = tester.widget<Container>(
+        find.byKey(const Key('question_image_surface')),
+      );
+      final darkDeco = darkInlineSurface.decoration! as BoxDecoration;
+      expect(darkDeco.color, darkTheme.scaffoldBackgroundColor);
+      expect(darkDeco.border, isNull);
+
+      // Tapping the image opens the full-screen zoom lightbox with a black system bar
       await tester.tap(find.byKey(const Key('question_image_tap_area')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('close_lightbox_btn')), findsOneWidget);
-      final lightboxSurface = tester.widget<Container>(
-        find.byKey(const Key('lightbox_image_surface')),
+      final imgOverlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+        find.byKey(const Key('fullscreen_image_overlay_region')),
       );
-      final lightboxDeco = lightboxSurface.decoration! as BoxDecoration;
-      expect(lightboxDeco.color, Colors.white);
-      expect(lightboxDeco.borderRadius, BorderRadius.zero);
+      expect(imgOverlay.value.statusBarColor, Colors.black);
+      expect(imgOverlay.value.statusBarIconBrightness, Brightness.light);
 
-      // Double tap at an off-center coordinate (280, 540) to zoom 2x centered there
+      // Double tap zooms to 3x centered on the current screen center
+      final viewer = tester.widget<InteractiveViewer>(
+        find.byType(InteractiveViewer),
+      );
+      final viewerBox = tester.getSize(find.byType(InteractiveViewer));
+      // Simulate user panning slightly before double-tapping
+      viewer.transformationController!.value = Matrix4.diagonal3Values(
+        1.5,
+        1.5,
+        1.0,
+      )..setTranslationRaw(-60.0, -90.0, 0.0);
+      final expectedSceneCenterX = (viewerBox.width / 2 - (-60.0)) / 1.5;
+      final expectedSceneCenterY = (viewerBox.height / 2 - (-90.0)) / 1.5;
+
       const tapTarget = Offset(280, 540);
       await tester.tapAt(tapTarget);
       await tester.pump(const Duration(milliseconds: 50));
       await tester.tapAt(tapTarget);
       await tester.pumpAndSettle();
 
-      final interactiveViewer = tester.widget<InteractiveViewer>(
-        find.byType(InteractiveViewer),
-      );
-      final matrix = interactiveViewer.transformationController!.value;
-      expect(matrix.getMaxScaleOnAxis(), closeTo(2.0, 1e-6));
-      final viewerBox = tester.getSize(find.byType(InteractiveViewer));
+      final matrix = viewer.transformationController!.value;
+      expect(matrix.getMaxScaleOnAxis(), closeTo(3.0, 1e-6));
       expect(
-        2.0 * tapTarget.dx + matrix.getTranslation().x,
+        3.0 * expectedSceneCenterX + matrix.getTranslation().x,
         closeTo(viewerBox.width / 2, 1.0),
       );
       expect(
-        2.0 * tapTarget.dy + matrix.getTranslation().y,
+        3.0 * expectedSceneCenterY + matrix.getTranslation().y,
         closeTo(viewerBox.height / 2, 1.0),
+      );
+
+      // Second double tap resets back to 1x
+      await tester.tapAt(tapTarget);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(tapTarget);
+      await tester.pumpAndSettle();
+      expect(
+        viewer.transformationController!.value.getMaxScaleOnAxis(),
+        closeTo(1.0, 1e-6),
       );
 
       // Close lightbox via subtle outlined button
@@ -194,7 +255,7 @@ void main() {
       expect(find.byKey(const Key('close_lightbox_btn')), findsNothing);
 
       // 2. Video media stage: square-cornered surface, tap-to-replay when stopped at end,
-      //    and fullscreen top-left Replay button + top-right Close button
+      //    and fullscreen black system bar + top-left Replay button + top-right Close button
       late _FakeVideoPlayerController fakeVideoCtrl;
       await tester.pumpWidget(
         MaterialApp(
@@ -239,9 +300,15 @@ void main() {
       expect(fakeVideoCtrl.seekZeroCalls, baselineSeekZero + 1);
       expect(fakeVideoCtrl.playCalls, 2);
 
-      // Open fullscreen video
+      // Open fullscreen video -> black status bar with light icons
       await tester.tap(find.byKey(const Key('video_fullscreen_btn')));
       await tester.pumpAndSettle();
+
+      final vidOverlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+        find.byKey(const Key('fullscreen_video_overlay_region')),
+      );
+      expect(vidOverlay.value.statusBarColor, Colors.black);
+      expect(vidOverlay.value.statusBarIconBrightness, Brightness.light);
 
       // Verify top-left Replay button and top-right Close button
       final replayFinder = find.byKey(const Key('replay_fullscreen_video_btn'));
@@ -440,7 +507,7 @@ void main() {
   );
 
   testWidgets(
-    'Answering a video question stops at the first frame without progress bar, and reopening plays from cache without re-downloading',
+    'Answering pauses a playing video in place, preserves the last frame if ended, and reopening plays from cache without re-downloading',
     (WidgetTester tester) async {
       var videoFetchCount = 0;
       final cache = MediaCacheService(
@@ -519,18 +586,17 @@ void main() {
       expect(activeCtrl.value.isPlaying, isTrue);
       expect(find.byType(VideoProgressIndicator), findsNothing);
 
-      // Simulate playback mid-stream, then answer the question
+      // Simulate playback mid-stream, then answer while playing -> pauses at current frame (no seek to 0)
       activeCtrl.simulateProgress(const Duration(seconds: 4));
       await tester.pumpWidget(buildHost(q: videoQuestion, isAnswered: true));
       await tester.pumpAndSettle();
 
-      // Video stops at the first frame (Duration.zero) and shows NO horizontal progress bar
       expect(activeCtrl.pauseCalls, 1);
       expect(activeCtrl.value.isPlaying, isFalse);
-      expect(activeCtrl.value.position, Duration.zero);
+      expect(activeCtrl.value.position, const Duration(seconds: 4));
       expect(find.byType(VideoProgressIndicator), findsNothing);
 
-      // 2. Navigate to another question and come back -> plays again WITHOUT re-downloading!
+      // 2. Navigate away and come back -> plays from cache WITHOUT re-downloading
       await tester.pumpWidget(buildHost(q: textQuestion, isAnswered: false));
       await tester.pumpAndSettle();
 
@@ -540,7 +606,15 @@ void main() {
       expect(videoFetchCount, 1);
       expect(activeCtrl.playCalls, 1);
       expect(activeCtrl.value.isPlaying, isTrue);
-      expect(find.byType(VideoProgressIndicator), findsNothing);
+
+      // Let the video finish at the last frame (10s), then answer -> stays on last frame!
+      activeCtrl.simulateEnded();
+      await tester.pumpWidget(buildHost(q: videoQuestion, isAnswered: true));
+      await tester.pumpAndSettle();
+
+      expect(activeCtrl.pauseCalls, 0);
+      expect(activeCtrl.value.isPlaying, isFalse);
+      expect(activeCtrl.value.position, const Duration(seconds: 10));
     },
   );
 }
